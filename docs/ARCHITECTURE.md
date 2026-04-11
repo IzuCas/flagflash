@@ -1,462 +1,371 @@
-# FlagFlash - Plataforma de Feature Flags
+# FlagFlash — Arquitetura
 
-## 📐 Arquitetura Geral
+## 📐 Visão Geral
 
 ```
-┌─────────────────────────────────────────────────────────────────────────────────┐
-│                              FlagFlash Platform                                  │
-├─────────────────────────────────────────────────────────────────────────────────┤
-│                                                                                  │
-│  ┌──────────────────┐    ┌──────────────────┐    ┌──────────────────┐          │
-│  │   Web Dashboard  │    │    SDK Client    │    │   REST API       │          │
-│  │   (React/TS)     │    │   (Go/JS/etc)    │    │   Consumer       │          │
-│  └────────┬─────────┘    └────────┬─────────┘    └────────┬─────────┘          │
-│           │                       │                       │                     │
-│           └───────────────────────┼───────────────────────┘                     │
-│                                   │                                              │
-│                    ┌──────────────▼──────────────┐                              │
-│                    │      API Gateway (Go)       │                              │
-│                    │   - REST Endpoints          │                              │
-│                    │   - WebSocket Server        │                              │
-│                    │   - API Key Auth            │                              │
-│                    │   - JWT Auth (Dashboard)    │                              │
-│                    └──────────────┬──────────────┘                              │
-│                                   │                                              │
-│           ┌───────────────────────┼───────────────────────┐                     │
-│           │                       │                       │                     │
-│  ┌────────▼─────────┐   ┌────────▼─────────┐   ┌────────▼─────────┐           │
-│  │   Application    │   │     Domain       │   │  Infrastructure  │           │
-│  │     Layer        │   │     Layer        │   │     Layer        │           │
-│  │   - Services     │   │   - Entities     │   │   - PostgreSQL   │           │
-│  │   - Use Cases    │   │   - Repos        │   │   - Redis        │           │
-│  │   - DTOs         │   │   - Value Obj    │   │   - WebSocket    │           │
-│  └──────────────────┘   └──────────────────┘   └──────────────────┘           │
-│                                                                                  │
-└─────────────────────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────┐
+│                       FlagFlash Platform                         │
+├──────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  ┌─────────────────┐   ┌─────────────────┐   ┌───────────────┐  │
+│  │  Web Dashboard  │   │   SDK (Go)      │   │  REST Client  │  │
+│  │  React / TS     │   │  gorilla/ws     │   │  qualquer     │  │
+│  └────────┬────────┘   └────────┬────────┘   └──────┬────────┘  │
+│           │  JWT                │  API Key          │  API Key  │
+│           └────────────────────┬┴───────────────────┘           │
+│                                │                                 │
+│               ┌────────────────▼───────────────┐                │
+│               │       API Gateway (Go)          │                │
+│               │  Chi router + Huma v2 (OpenAPI) │                │
+│               │  ├─ /auth/*   JWT público       │                │
+│               │  ├─ /sdk/*    API Key           │                │
+│               │  ├─ /sdk/ws   WebSocket         │                │
+│               │  └─ /manage/* JWT dashboard     │                │
+│               └────────────────┬───────────────┘                │
+│                                │                                 │
+│        ┌───────────────────────┼───────────────┐                │
+│        │                       │               │                │
+│  ┌─────▼──────┐   ┌────────────▼────┐   ┌──────▼──────┐        │
+│  │ Application│   │    Domain       │   │Infrastructure│        │
+│  │  Services  │   │  Entities       │   │  PostgreSQL  │        │
+│  │  (10 svcs) │   │  Repositories   │   │  Redis       │        │
+│  └────────────┘   └─────────────────┘   │  WebSocket   │        │
+│                                         └──────────────┘        │
+└──────────────────────────────────────────────────────────────────┘
 ```
 
 ## 🏗️ Hierarquia de Domínio
 
 ```
-Tenant (Organização)
-├── Applications (Múltiplas aplicações)
-│   ├── Environments (dev, staging, prod)
-│   │   ├── Feature Flags
-│   │   │   ├── Boolean Flags
-│   │   │   ├── JSON Config Flags
-│   │   │   └── Rollout Rules
-│   │   └── API Keys (vinculadas ao environment)
-│   └── Environments...
-└── Applications...
+Tenant
+├── Users (memberships: owner / admin / member / viewer)
+├── Applications
+│   └── Environments (dev, staging, production)
+│       ├── Feature Flags (boolean / json / string / number)
+│       │   └── Targeting Rules (condições + rollout %)
+│       └── API Keys (escopo por environment)
+└── Audit Logs
 ```
+
+### Papéis de Usuário
+
+| Papel | Nível | Pode gerenciar |
+|-------|-------|----------------|
+| `owner` | 100 | Todos; imutável — ninguém pode alterar ou remover |
+| `admin` | 75 | `member` e `viewer` |
+| `member` | 50 | Acesso operacional (flags, environments) |
+| `viewer` | 25 | Somente leitura |
 
 ## 📦 Estrutura de Pastas
 
 ```
 flagflash/
-├── api/                           # Backend Go
-│   ├── cmd/
-│   │   └── api/
-│   │       └── main.go
+├── docker-compose.yml             # PostgreSQL + Redis
+├── api/                           # Backend Go (Clean Architecture)
+│   ├── cmd/api/main.go            # Ponto de entrada
 │   ├── internal/
-│   │   ├── domain/                # Camada de Domínio
+│   │   ├── domain/                # Entidades + interfaces de repositório
 │   │   │   ├── entity/
 │   │   │   │   ├── tenant.go
+│   │   │   │   ├── user.go        # UserRole + hierarquia
 │   │   │   │   ├── application.go
 │   │   │   │   ├── environment.go
 │   │   │   │   ├── feature_flag.go
+│   │   │   │   ├── targeting.go
 │   │   │   │   ├── api_key.go
 │   │   │   │   ├── audit_log.go
-│   │   │   │   └── targeting.go
-│   │   │   └── repository/
-│   │   │       ├── tenant_repository.go
-│   │   │       ├── application_repository.go
-│   │   │       ├── environment_repository.go
-│   │   │       ├── feature_flag_repository.go
-│   │   │       └── api_key_repository.go
-│   │   ├── application/           # Camada de Aplicação
-│   │   │   └── service/
-│   │   │       ├── tenant_service.go
-│   │   │       ├── application_service.go
-│   │   │       ├── environment_service.go
-│   │   │       ├── feature_flag_service.go
-│   │   │       ├── api_key_service.go
-│   │   │       └── evaluation_service.go
-│   │   ├── infrastructure/        # Camada de Infraestrutura
-│   │   │   ├── postgres/
-│   │   │   │   ├── connection.go
-│   │   │   │   ├── tenant_repo.go
-│   │   │   │   ├── application_repo.go
-│   │   │   │   ├── environment_repo.go
-│   │   │   │   ├── feature_flag_repo.go
-│   │   │   │   └── api_key_repo.go
-│   │   │   ├── redis/
-│   │   │   │   ├── connection.go
-│   │   │   │   ├── cache.go
-│   │   │   │   └── pubsub.go
-│   │   │   └── websocket/
-│   │   │       └── hub.go
-│   │   └── interfaces/            # Camada de Interface
-│   │       └── http/
-│   │           ├── dto/
-│   │           │   ├── tenant_dto.go
-│   │           │   ├── application_dto.go
-│   │           │   ├── environment_dto.go
-│   │           │   ├── feature_flag_dto.go
-│   │           │   └── api_key_dto.go
-│   │           ├── handler/
-│   │           │   ├── tenant_handler.go
-│   │           │   ├── application_handler.go
-│   │           │   ├── environment_handler.go
-│   │           │   ├── feature_flag_handler.go
-│   │           │   ├── api_key_handler.go
-│   │           │   ├── evaluation_handler.go
-│   │           │   └── ws_handler.go
-│   │           └── router.go
-│   ├── pkg/
-│   │   ├── auth/
-│   │   │   ├── jwt.go
-│   │   │   └── api_key.go
-│   │   ├── middleware/
-│   │   │   ├── jwt_auth.go
-│   │   │   ├── api_key_auth.go
-│   │   │   └── tenant_context.go
-│   │   └── logger/
-│   │       └── logger.go
-│   └── migrations/
-│       └── *.sql
-├── app/                           # Frontend React
+│   │   │   │   └── evaluation_event.go
+│   │   │   └── repository/        # Interfaces (10 repositories)
+│   │   ├── application/service/   # Serviços de negócio (10 services)
+│   │   │   ├── auth_service.go
+│   │   │   ├── tenant_service.go
+│   │   │   ├── user_service.go
+│   │   │   ├── application_service.go
+│   │   │   ├── environment_service.go
+│   │   │   ├── feature_flag_service.go
+│   │   │   ├── api_key_service.go
+│   │   │   ├── evaluation_service.go
+│   │   │   ├── audit_log_service.go
+│   │   │   └── usage_metrics_service.go
+│   │   ├── infrastructure/
+│   │   │   ├── config/config.go
+│   │   │   ├── postgres/          # Implementações dos repositórios
+│   │   │   ├── redis/             # Cache (flag_cache, apikey_cache, etc.)
+│   │   │   └── websocket/hub.go   # WebSocket Hub
+│   │   └── interfaces/http/
+│   │       ├── flagflash_router.go
+│   │       ├── handler/           # 9 handlers HTTP
+│   │       └── middleware/        # JWT auth, API Key auth, logging
+│   ├── migrations/001_initial_schema.sql
+│   └── pkg/
+│       ├── auth/                  # JWT + credentials
+│       ├── middleware/            # rate_limit, logging
+│       └── logger/
+├── app/                           # Frontend React + TS + Tailwind CSS
 │   └── src/
-│       ├── pages/
-│       │   ├── Tenants.tsx
-│       │   ├── Applications.tsx
-│       │   ├── Environments.tsx
-│       │   ├── FeatureFlags.tsx
-│       │   ├── ApiKeys.tsx
-│       │   └── Dashboard.tsx
-│       ├── components/
-│       │   ├── FlagEditor.tsx
-│       │   ├── JsonEditor.tsx
-│       │   ├── RolloutConfig.tsx
-│       │   └── TargetingRules.tsx
-│       └── services/
-│           └── flagflash-api.ts
-└── docker-compose.yml
+│       ├── pages/flagflash/       # 12 páginas do dashboard
+│       ├── components/            # Modal, ConfirmDeleteModal
+│       ├── contexts/AuthContext.tsx
+│       ├── services/flagflash-api.ts
+│       ├── hooks/useWebSocket.ts
+│       └── types/flagflash.ts
+├── sdk/                           # Go SDK
+│   ├── client.go
+│   ├── evaluate.go
+│   ├── websocket.go
+│   └── example/basic/main.go
+└── docs/
+    └── ARCHITECTURE.md
 ```
 
-## 🗃️ Modelagem de Banco de Dados
+## 🗃️ Modelo de Dados
 
-```sql
--- Tenants (Organizações)
-CREATE TABLE tenants (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name VARCHAR(255) NOT NULL,
-    slug VARCHAR(100) UNIQUE NOT NULL,
-    settings JSONB DEFAULT '{}',
-    created_at TIMESTAMP DEFAULT NOW(),
-    updated_at TIMESTAMP DEFAULT NOW(),
-    deleted_at TIMESTAMP NULL
-);
+| Tabela | Descrição | Chaves principais |
+|--------|-----------|-------------------|
+| `tenants` | Organizações/workspaces | `slug` UNIQUE, `plan`, `active`, `settings` JSONB |
+| `users` | Usuários do dashboard | `email` UNIQUE, `password_hash`, `role`, `active` |
+| `user_tenant_memberships` | N-N usuários ↔ tenants | `(user_id, tenant_id)` UNIQUE, `role`, `active` |
+| `applications` | Apps por tenant | `(tenant_id, slug)` UNIQUE |
+| `environments` | Ambientes por app | `(application_id, slug)` UNIQUE, `color`, `is_production` |
+| `feature_flags` | Flags por environment | `(environment_id, key)` UNIQUE, `type`, `value` JSONB, `tags[]` |
+| `targeting_rules` | Regras por flag | `priority`, `conditions` JSONB, `percentage` 0-100 |
+| `api_keys` | Autenticação SDK | `key_hash` UNIQUE, `permissions[]`, `expires_at`, `revoked_at` |
+| `audit_logs` | Histórico completo | `entity_type`, `old_value`/`new_value` JSONB |
+| `evaluation_events` | Eventos brutos do SDK | `flag_key`, `value`, `context` JSONB, `evaluated_at` |
+| `evaluation_summary` | Agregação horária | `(env_id, flag_id, hour_bucket)` UNIQUE |
 
--- Applications (Aplicações por Tenant)
-CREATE TABLE applications (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-    name VARCHAR(255) NOT NULL,
-    slug VARCHAR(100) NOT NULL,
-    description TEXT,
-    created_at TIMESTAMP DEFAULT NOW(),
-    updated_at TIMESTAMP DEFAULT NOW(),
-    deleted_at TIMESTAMP NULL,
-    UNIQUE(tenant_id, slug)
-);
+**Seed padrão:**
+- Tenant `00000000-...-0001` — "Default Organization" (slug: `default`)
+- Usuário `admin@flagflash.io` / `admin123` com papel `owner`
 
--- Environments (Ambientes por Application)
-CREATE TABLE environments (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    application_id UUID NOT NULL REFERENCES applications(id) ON DELETE CASCADE,
-    name VARCHAR(100) NOT NULL,
-    slug VARCHAR(50) NOT NULL,
-    color VARCHAR(7) DEFAULT '#6366f1',
-    is_production BOOLEAN DEFAULT FALSE,
-    created_at TIMESTAMP DEFAULT NOW(),
-    updated_at TIMESTAMP DEFAULT NOW(),
-    UNIQUE(application_id, slug)
-);
+## 🔌 Rotas da API
 
--- Feature Flags
-CREATE TABLE feature_flags (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    environment_id UUID NOT NULL REFERENCES environments(id) ON DELETE CASCADE,
-    key VARCHAR(255) NOT NULL,
-    name VARCHAR(255) NOT NULL,
-    description TEXT,
-    flag_type VARCHAR(20) NOT NULL CHECK (flag_type IN ('boolean', 'json', 'string', 'number')),
-    enabled BOOLEAN DEFAULT FALSE,
-    default_value JSONB NOT NULL,
-    version INTEGER DEFAULT 1,
-    tags TEXT[],
-    created_at TIMESTAMP DEFAULT NOW(),
-    updated_at TIMESTAMP DEFAULT NOW(),
-    deleted_at TIMESTAMP NULL,
-    UNIQUE(environment_id, key)
-);
+Prefixo base: `/api/v1/flagflash`
 
--- Targeting Rules (Regras de Targeting)
-CREATE TABLE targeting_rules (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    feature_flag_id UUID NOT NULL REFERENCES feature_flags(id) ON DELETE CASCADE,
-    name VARCHAR(255) NOT NULL,
-    priority INTEGER DEFAULT 0,
-    conditions JSONB NOT NULL,
-    value JSONB NOT NULL,
-    percentage INTEGER DEFAULT 100 CHECK (percentage >= 0 AND percentage <= 100),
-    enabled BOOLEAN DEFAULT TRUE,
-    created_at TIMESTAMP DEFAULT NOW(),
-    updated_at TIMESTAMP DEFAULT NOW()
-);
+### Autenticação (público)
 
--- API Keys
-CREATE TABLE api_keys (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    environment_id UUID NOT NULL REFERENCES environments(id) ON DELETE CASCADE,
-    name VARCHAR(255) NOT NULL,
-    key_hash VARCHAR(64) NOT NULL UNIQUE,
-    key_prefix VARCHAR(12) NOT NULL,
-    permissions TEXT[] DEFAULT ARRAY['read'],
-    expires_at TIMESTAMP NULL,
-    last_used_at TIMESTAMP NULL,
-    created_at TIMESTAMP DEFAULT NOW(),
-    revoked_at TIMESTAMP NULL
-);
-
--- Audit Logs (Histórico de Alterações)
-CREATE TABLE audit_logs (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id UUID NOT NULL REFERENCES tenants(id),
-    entity_type VARCHAR(50) NOT NULL,
-    entity_id UUID NOT NULL,
-    action VARCHAR(50) NOT NULL,
-    actor_id VARCHAR(255),
-    actor_type VARCHAR(50),
-    old_value JSONB,
-    new_value JSONB,
-    metadata JSONB DEFAULT '{}',
-    created_at TIMESTAMP DEFAULT NOW()
-);
-
--- Users (Usuários do Dashboard)
-CREATE TABLE users (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
-    email VARCHAR(255) UNIQUE NOT NULL,
-    password_hash VARCHAR(255) NOT NULL,
-    name VARCHAR(255) NOT NULL,
-    role VARCHAR(50) DEFAULT 'member',
-    created_at TIMESTAMP DEFAULT NOW(),
-    updated_at TIMESTAMP DEFAULT NOW(),
-    deleted_at TIMESTAMP NULL
-);
-
--- Indexes
-CREATE INDEX idx_applications_tenant_id ON applications(tenant_id);
-CREATE INDEX idx_environments_application_id ON environments(application_id);
-CREATE INDEX idx_feature_flags_environment_id ON feature_flags(environment_id);
-CREATE INDEX idx_feature_flags_key ON feature_flags(key);
-CREATE INDEX idx_targeting_rules_flag_id ON targeting_rules(feature_flag_id);
-CREATE INDEX idx_api_keys_environment_id ON api_keys(environment_id);
-CREATE INDEX idx_api_keys_key_hash ON api_keys(key_hash);
-CREATE INDEX idx_audit_logs_tenant_entity ON audit_logs(tenant_id, entity_type, entity_id);
-CREATE INDEX idx_audit_logs_created_at ON audit_logs(created_at DESC);
+```
+POST  /auth/login            # Email + senha → JWT
+POST  /auth/register         # Cria tenant + usuário owner
+POST  /auth/refresh          # Renova JWT
+POST  /auth/switch-tenant    # Troca tenant ativo no token
+POST  /auth/change-password  # Altera senha do usuário logado
 ```
 
-## 🔌 API Endpoints
+### SDK — API Key obrigatória
 
-### Autenticação
 ```
-POST   /api/v1/auth/login           # Login (retorna JWT)
-POST   /api/v1/auth/register        # Registro de novo tenant/user
-POST   /api/v1/auth/refresh         # Refresh JWT token
-POST   /api/v1/auth/logout          # Logout
-```
-
-### Tenants
-```
-GET    /api/v1/tenants              # Lista tenants (admin)
-GET    /api/v1/tenants/:id          # Detalhes do tenant
-PUT    /api/v1/tenants/:id          # Atualiza tenant
-DELETE /api/v1/tenants/:id          # Remove tenant
+GET   /sdk/flags             # Todos os flags do environment
+GET   /sdk/flags/{key}       # Flag por chave
+POST  /sdk/evaluate          # Avalia um flag com EvaluationContext
+POST  /sdk/evaluate-all      # Avalia todos os flags com contexto
+GET   /sdk/ws                # WebSocket (upgrade)
 ```
 
-### Applications
-```
-GET    /api/v1/applications                    # Lista applications do tenant
-POST   /api/v1/applications                    # Cria application
-GET    /api/v1/applications/:id                # Detalhes do application
-PUT    /api/v1/applications/:id                # Atualiza application
-DELETE /api/v1/applications/:id                # Remove application
-```
+### Dashboard `/manage` — JWT obrigatório
 
-### Environments
 ```
-GET    /api/v1/applications/:appId/environments           # Lista environments
-POST   /api/v1/applications/:appId/environments           # Cria environment
-GET    /api/v1/applications/:appId/environments/:id       # Detalhes
-PUT    /api/v1/applications/:appId/environments/:id       # Atualiza
-DELETE /api/v1/applications/:appId/environments/:id       # Remove
-```
+# Tenants
+GET    /manage/tenants
+GET    /manage/tenants/{id}
+POST   /manage/tenants
+PUT    /manage/tenants/{id}
+DELETE /manage/tenants/{id}
 
-### Feature Flags
-```
-GET    /api/v1/environments/:envId/flags                  # Lista flags
-POST   /api/v1/environments/:envId/flags                  # Cria flag
-GET    /api/v1/environments/:envId/flags/:id              # Detalhes
-PUT    /api/v1/environments/:envId/flags/:id              # Atualiza flag
-PATCH  /api/v1/environments/:envId/flags/:id/toggle       # Toggle on/off
-DELETE /api/v1/environments/:envId/flags/:id              # Remove flag
-GET    /api/v1/environments/:envId/flags/:id/history      # Histórico
-POST   /api/v1/environments/:envId/flags/copy             # Copia flags entre envs
-```
+# Applications
+GET    /manage/tenants/{tid}/applications
+POST   /manage/tenants/{tid}/applications
+GET    /manage/tenants/{tid}/applications/{id}
+PUT    /manage/tenants/{tid}/applications/{id}
+DELETE /manage/tenants/{tid}/applications/{id}
 
-### Targeting Rules
-```
-GET    /api/v1/flags/:flagId/targeting                    # Lista rules
-POST   /api/v1/flags/:flagId/targeting                    # Cria rule
-PUT    /api/v1/flags/:flagId/targeting/:id                # Atualiza rule
-DELETE /api/v1/flags/:flagId/targeting/:id                # Remove rule
-```
+# Environments
+GET    /manage/applications/{aid}/environments
+POST   /manage/applications/{aid}/environments
+PUT    /manage/applications/{aid}/environments/{id}
+DELETE /manage/applications/{aid}/environments/{id}
 
-### API Keys
-```
-GET    /api/v1/environments/:envId/api-keys               # Lista API keys
-POST   /api/v1/environments/:envId/api-keys               # Gera nova key
-DELETE /api/v1/environments/:envId/api-keys/:id           # Revoga key
-POST   /api/v1/environments/:envId/api-keys/:id/rotate    # Rotaciona key
-```
+# Feature Flags
+GET    /manage/environments/{eid}/flags
+POST   /manage/environments/{eid}/flags
+PUT    /manage/environments/{eid}/flags/{id}
+PATCH  /manage/environments/{eid}/flags/{id}/toggle
+POST   /manage/environments/{eid}/flags/{id}/copy
+DELETE /manage/environments/{eid}/flags/{id}
 
-### SDK/Client Endpoints (autenticado via API Key)
-```
-GET    /api/v1/sdk/flags                                  # Retorna todas flags
-GET    /api/v1/sdk/flags/:key                             # Retorna flag específica
-POST   /api/v1/sdk/evaluate                               # Avalia flag com contexto
-```
+# Targeting Rules
+GET    /manage/flags/{fid}/targeting-rules
+POST   /manage/flags/{fid}/targeting-rules
+PUT    /manage/flags/{fid}/targeting-rules/{id}
+DELETE /manage/flags/{fid}/targeting-rules/{id}
 
-### WebSocket
-```
-ws://  /ws/flags?api_key=xxx                              # Subscribe em flags
+# API Keys
+GET    /manage/tenants/{tid}/api-keys
+POST   /manage/tenants/{tid}/api-keys
+DELETE /manage/tenants/{tid}/api-keys/{id}
+POST   /manage/tenants/{tid}/api-keys/{id}/rotate
+
+# Users
+GET    /manage/tenants/{tid}/users
+POST   /manage/tenants/{tid}/users
+PUT    /manage/tenants/{tid}/users/{id}
+DELETE /manage/tenants/{tid}/users/{id}
+POST   /manage/tenants/{tid}/users/invite
+
+# Audit Log
+GET    /manage/tenants/{tid}/audit-logs
+
+# Usage Metrics
+GET    /manage/tenants/{tid}/usage-metrics
+GET    /manage/tenants/{tid}/usage-metrics/timeline
+GET    /manage/tenants/{tid}/usage-metrics/flags
+GET    /manage/tenants/{tid}/usage-metrics/environments
 ```
 
 ## 📡 Fluxo WebSocket
 
 ```
-1. Cliente conecta: ws://server/ws/flags?api_key=ff_123...
-2. Servidor valida API Key e identifica environment
-3. Cliente se inscreve automaticamente nas flags do environment
-4. Quando uma flag muda:
-   - Dashboard atualiza via REST
-   - Servidor publica no Redis Pub/Sub
-   - Hub WebSocket recebe e distribui para clientes conectados
-   
-Mensagens:
-→ Server: { "type": "connected", "environment": "production" }
-→ Server: { "type": "flags", "data": [...] }            # Todas flags
-→ Server: { "type": "flag_updated", "data": {...} }     # Flag alterada
-→ Server: { "type": "flag_deleted", "key": "..." }      # Flag removida
-← Client: { "type": "ping" }                            # Keep-alive
-→ Server: { "type": "pong" }
+URL: ws://server/api/v1/flagflash/sdk/ws
+Auth: Header "Authorization: Bearer ff_<key>" ou query param ?api_key=ff_<key>
+
+Fluxo:
+1. Cliente conecta → servidor valida API Key → identifica environment
+2. Servidor envia snapshot completo: { type: "flags", data: [...] }
+3. SDK preenche cache local
+4. Alteração via dashboard:
+   └─ REST PUT /flags/{id}
+      └─ Redis PUBLISH flag_updates:{env_id}
+         └─ WebSocket Hub → todos os clientes do environment
+            └─ SDK atualiza cache local (sem polling)
+
+Tipos de mensagem:
+  Server → Client:
+    { "type": "connected", "environment_id": "..." }
+    { "type": "flags",       "data": [...] }        # snapshot inicial
+    { "type": "flag_updated","data": {...} }        # flag alterada
+    { "type": "flag_deleted","key":  "..." }        # flag removida
+    { "type": "pong" }
+  Client → Server:
+    { "type": "ping" }                              # keep-alive
 ```
 
 ## 🔐 Estratégia de Cache (Redis)
 
 ```
-Chaves:
-- flags:{env_id}             → Hash com todas flags do environment
-- flags:{env_id}:{flag_key}  → Flag individual (JSONB)
-- apikey:{key_hash}          → Dados da API Key
-- ws:subscribers:{env_id}    → Set de conexões WebSocket
+Chaves de cache:
+  flag:{env_id}:{flag_key}   → Flag individual (JSON)     TTL: 5 min
+  flag:list:{env_id}         → Lista de flags do ambiente  TTL: 5 min
+  apikey:{key_hash}          → Dados da API Key            TTL: 1 hora
+  tenant:{id}                → Dados do tenant             TTL: 30 min
+  tenant:slug:{slug}         → Lookup por slug             TTL: 30 min
+  app:{id}                   → Dados da application        TTL: 5 min
+  app:list:{tenant_id}       → Lista de apps               TTL: 5 min
+  env:{id}                   → Dados do environment        TTL: 5 min
+  env:list:{app_id}          → Lista de environments       TTL: 5 min
 
-TTL:
-- Flags: 5 minutos (invalidado em mudanças)
-- API Keys: 1 hora
-- Conexões WS: Gerenciado pelo Hub
+Invalidação:
+  Flag alterada
+    → redis PUBLISH flag_updates:{env_id}
+    → WebSocket Hub recebe
+    → Entrega flag_updated a todos SDKs do environment
+    → Invalida cache da flag
 
-Invalidation:
-- Flag atualizada → PUBLISH flag_updates:{env_id} → Redis Pub/Sub
-- WebSocket Hub recebe → Notifica clientes → Invalida cache
+Caches implementados (arquivos separados):
+  flag_cache.go / apikey_cache.go / tenant_cache.go
+  application_cache.go / environment_cache.go
 ```
 
-## 🚀 Estratégias de Escalabilidade
+## 🚀 Escalabilidade
 
-### Horizontal
-- **API Server**: Stateless, escala horizontalmente
-- **WebSocket**: Redis Pub/Sub para sincronizar entre instâncias
-- **Database**: Read replicas para consultas
-
-### Cache
-- L1: In-memory (por instância)
-- L2: Redis (compartilhado)
-- Invalidação: Event-driven via Pub/Sub
-
-### Performance
-- Flags cached por environment
-- Batch evaluation para múltiplas flags
-- Connection pooling para PostgreSQL
-- Compressão de WebSocket messages
+- **API stateless** — escala horizontalmente; múltiplas instâncias compartilham o Redis
+- **WebSocket** — Redis Pub/Sub sincroniza eventos entre instâncias
+- **Banco** — connection pool configurável (`DB_MAX_OPEN_CONNS`, `DB_MAX_IDLE_CONNS`)
+- **Cache em camadas** — Redis (L2) reduz carga no Postgres; SDK mantém L1 em memória
+- **Rate limiting** — 300 req/min por IP (middleware global)
+- **Avaliação de flags** — toda a lógica de targeting roda no servidor; SDK só decide pelo cache local
 
 ## 🎯 Avaliação de Flags com Targeting
 
-```go
-type EvaluationContext struct {
-    UserID     string         `json:"user_id"`
-    Email      string         `json:"email"`
-    Country    string         `json:"country"`
-    Version    string         `json:"version"`
-    Custom     map[string]any `json:"custom"`
-}
+```
+Ordem de avaliação (POST /sdk/evaluate):
+  1. Busca flag do cache Redis
+  2. Flag desabilitada → retorna default_value
+  3. Para cada targeting rule (ordenado por priority ASC):
+     a. Avalia todas as conditions (operadores: eq, neq, in, not_in,
+        contains, starts_with, ends_with, gt, lt, gte, lte, regex)
+     b. Conditions satisfeitas → verifica rollout percentage (hash do user_id)
+     c. Aprovado → retorna value da rule
+  4. Nenhuma rule faz match → retorna default_value
 
-// Processo de avaliação:
-// 1. Busca flag do cache
-// 2. Se flag desabilitada → retorna default
-// 3. Para cada targeting rule (ordenado por prioridade):
-//    a. Avalia condições
-//    b. Se match, verifica percentage (rollout)
-//    c. Se passa, retorna valor da rule
-// 4. Se nenhuma rule match → retorna default_value
+EvaluationContext (mapa livre de chaves/valores):
+  {
+    "user_id":  "usr-42",
+    "email":    "user@company.com",
+    "plan":     "pro",
+    "country":  "BR",
+    "version":  "2.1.0"
+  }
 ```
 
-## 📊 Exemplo de Targeting Rules
+## 📊 Exemplo de Targeting Rule
 
 ```json
-{
-  "rules": [
-    {
-      "name": "Beta Users",
-      "conditions": [
-        { "attribute": "email", "operator": "ends_with", "value": "@company.com" }
-      ],
-      "value": true,
-      "percentage": 100
-    },
-    {
-      "name": "Gradual Rollout",
-      "conditions": [
-        { "attribute": "country", "operator": "in", "value": ["BR", "US"] }
-      ],
-      "value": true,
-      "percentage": 25
-    }
-  ]
-}
+[
+  {
+    "name": "Beta Users",
+    "priority": 1,
+    "enabled": true,
+    "conditions": [
+      { "attribute": "email", "operator": "ends_with", "value": "@company.com" }
+    ],
+    "value": true,
+    "percentage": 100
+  },
+  {
+    "name": "Gradual Rollout BR/US",
+    "priority": 2,
+    "enabled": true,
+    "conditions": [
+      { "attribute": "country", "operator": "in", "value": ["BR", "US"] }
+    ],
+    "value": true,
+    "percentage": 25
+  }
+]
 ```
 
 ## 🏃 Como Rodar
 
 ```bash
-# Com Docker Compose
+# 1. Infraestrutura
 docker-compose up -d
 
-# Acessar:
-# - Dashboard: http://localhost:3000
-# - API: http://localhost:9001
-# - API Docs: http://localhost:9001/docs
+# 2. API
+cd api
+export JWT_SECRET="min-32-chars-secret"
+go run ./cmd/api
+
+# 3. Frontend
+cd app && npm install && npm run dev
+
+# Endereços:
+#   Dashboard  → http://localhost:5173
+#   API        → http://localhost:9001/api/v1/flagflash
+#   OpenAPI    → http://localhost:9001/api/v1/flagflash/docs
+#   Health     → http://localhost:9001/health
+#
+# Login padrão: admin@flagflash.io / admin123
 ```
+
+## 🔒 Segurança
+
+- **JWT** algoritmo fixado em HS256; app recusa token com alg diferente
+- **JWT_SECRET** obrigatório no startup (panic se ausente ou < 32 chars)
+- **Owners** são imutáveis — nenhum papel pode editar ou remover um owner
+- **Hierarquia de papéis** validada na API antes de qualquer mutação de usuário
+- **Rate limiting** 300 req/min por IP via `x/time/rate`
+- **CORS** configurável via `CORS_ALLOWED_ORIGINS`; credenciais não expostas
+- **SSL Postgres** default `prefer`
+- **API Keys** armazenadas como hash SHA-256; nunca o valor original
+- **Paginação** com LIMIT/OFFSET sempre parametrizado (sem SQL injection)
+- **SDK** valida formato da flag key com regex antes de qualquer chamada
