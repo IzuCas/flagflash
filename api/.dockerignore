@@ -1,0 +1,26 @@
+# Git
+.git
+.gitignore
+
+# IDE
+.vscode
+.idea
+
+# Documentation
+README.md
+docs/
+
+# Debug binaries
+cmd/api/__debug_bin*
+
+# Test files
+*_test.go
+
+# Docker
+Dockerfile
+.dockerignore
+docker-compose.yml
+
+# Local env
+.env
+.env.local

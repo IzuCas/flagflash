@@ -1,0 +1,110 @@
+# ==================================
+# Go Backend (api/)
+# ==================================
+
+# Binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+api/cmd/api/__debug_bin*
+
+# Test binary
+*.test
+
+# Output of go coverage
+*.out
+
+# Go workspace file
+go.work
+
+# Dependency directories
+vendor/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Docker manager config
+.docker-manager/
+
+# Credentials (contains sensitive login data)
+**/data/credentials.json
+
+# ==================================
+# React Frontend (app/)
+# ==================================
+
+# Dependencies
+app/node_modules/
+
+# Build output
+app/dist/
+
+# Logs
+app/*.log
+app/npm-debug.log*
+app/yarn-debug.log*
+app/yarn-error.log*
+app/pnpm-debug.log*
+
+# Editor directories
+app/.vscode/*
+!app/.vscode/extensions.json
+app/.idea
+
+# Local env files
+app/.env.local
+app/.env.*.local
+
+# TypeScript cache
+app/*.tsbuildinfo
+
+# Vite
+app/vite.config.ts.timestamp-*
+
+# ==================================
+# Electron
+# ==================================
+
+# Electron build output
+app/release/
+
+# Compiled Electron files
+app/electron/*.js
+app/electron/*.js.map
+
+# API binary for Electron
+api/bin/
+
+# ==================================
+# General
+# ==================================
+
+# Logs
+logs/
+*.log
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Coverage
+coverage/
+
+# Debug
+debug/

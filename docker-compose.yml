@@ -1,0 +1,125 @@
+version: '3.8'
+
+services:
+  # ================================================
+  # PostgreSQL - Primary Database
+  # ================================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: flagflash-postgres
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: flagflash
+      POSTGRES_PASSWORD: flagflash_secret
+      POSTGRES_DB: flagflash
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./api/migrations:/docker-entrypoint-initdb.d:ro
+    networks:
+      - flagflash-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U flagflash -d flagflash"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ================================================
+  # Redis - Cache and Pub/Sub
+  # ================================================
+  redis:
+    image: redis:7-alpine
+    container_name: flagflash-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru --requirepass redis_secret
+    environment:
+      - REDIS_PASSWORD=redis_secret
+    volumes:
+      - redis-data:/data
+    networks:
+      - flagflash-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "redis_secret", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ================================================
+  # FlagFlash API - Go Backend
+  # ================================================
+  # api:
+  #   build:
+  #     context: ./api
+  #     dockerfile: Dockerfile
+  #   container_name: flagflash-api
+  #   restart: unless-stopped
+  #   ports:
+  #     - "9001:9001"
+  #   volumes:
+  #     # Mount Docker socket to allow container management (legacy Docker UI)
+  #     - /var/run/docker.sock:/var/run/docker.sock:ro
+  #     # Persist configuration
+  #     - api-config:/root/.docker-manager
+  #   environment:
+  #     - DOCKER_HOST=unix:///var/run/docker.sock
+  #     # FlagFlash configuration
+  #     - FLAGFLASH_DB_HOST=postgres
+  #     - FLAGFLASH_DB_PORT=5432
+  #     - FLAGFLASH_DB_USER=flagflash
+  #     - FLAGFLASH_DB_PASSWORD=flagflash_secret
+  #     - FLAGFLASH_DB_NAME=flagflash
+  #     - FLAGFLASH_DB_SSLMODE=disable
+  #     - FLAGFLASH_REDIS_HOST=redis
+  #     - FLAGFLASH_REDIS_PORT=6379
+  #     - FLAGFLASH_REDIS_PASSWORD=redis_secret
+  #     - FLAGFLASH_JWT_SECRET=your-super-secret-jwt-key-change-in-production
+  #     - FLAGFLASH_API_PORT=9001
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #     redis:
+  #       condition: service_healthy
+  #   networks:
+  #     - flagflash-network
+  #   healthcheck:
+  #     test: ["CMD", "wget", "-q", "--spider", "http://localhost:9001/system/ping"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 3
+  #     start_period: 10s
+
+  # # ================================================
+  # # FlagFlash App - React Frontend
+  # # ================================================
+  # app:
+  #   build:
+  #     context: ./app
+  #     dockerfile: Dockerfile
+  #   container_name: flagflash-app
+  #   restart: unless-stopped
+  #   ports:
+  #     - "3000:80"
+  #   environment:
+  #     - VITE_API_URL=http://localhost:9001
+  #     - VITE_WS_URL=ws://localhost:9001
+  #   depends_on:
+  #     api:
+  #       condition: service_healthy
+  #   networks:
+  #     - flagflash-network
+
+networks:
+  flagflash-network:
+    driver: bridge
+    name: flagflash-network
+
+volumes:
+  postgres-data:
+    name: flagflash-postgres-data
+  redis-data:
+    name: flagflash-redis-data
+  api-config:
+    name: flagflash-api-config

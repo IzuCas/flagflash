@@ -1,0 +1,347 @@
+@import "tailwindcss";
+
+@theme {
+  --color-bg-primary: #0d1117;
+  --color-bg-secondary: #161b22;
+  --color-bg-tertiary: #21262d;
+  --color-border: #30363d;
+  --color-text-primary: #c9d1d9;
+  --color-text-secondary: #8b949e;
+  --color-accent-blue: #58a6ff;
+  --color-accent-green: #3fb950;
+  --color-accent-red: #f85149;
+  --color-accent-yellow: #d29922;
+  --color-accent-purple: #a371f7;
+}
+
+@layer base {
+  body {
+    @apply bg-bg-primary text-text-primary font-sans leading-normal;
+  }
+
+  a {
+    @apply text-accent-blue no-underline hover:underline;
+  }
+
+  button {
+    @apply cursor-pointer font-sans;
+  }
+}
+
+@layer components {
+  /* Page Layout */
+  .page-header {
+    @apply flex justify-between items-center mb-6;
+  }
+
+  .page-title {
+    @apply text-2xl font-semibold flex items-center gap-2;
+  }
+
+  .page-actions {
+    @apply flex items-center gap-3;
+  }
+
+  /* Buttons */
+  .btn {
+    @apply inline-flex items-center gap-2 py-2 px-4 rounded-md text-sm font-medium border border-border bg-bg-tertiary text-text-primary transition-all duration-150;
+  }
+
+  .btn:hover {
+    @apply bg-border;
+  }
+
+  .btn-primary {
+    @apply bg-accent-green border-accent-green text-white;
+  }
+
+  .btn-primary:hover {
+    @apply bg-green-700;
+  }
+
+  .btn-danger {
+    @apply bg-transparent border-accent-red text-accent-red;
+  }
+
+  .btn-danger:hover {
+    @apply bg-accent-red text-white;
+  }
+
+  .btn-sm {
+    @apply py-1 px-2 text-xs;
+  }
+
+  .btn-icon {
+    @apply p-2 border-none bg-transparent rounded-md text-text-secondary transition-colors duration-150;
+  }
+
+  .btn-icon:hover {
+    @apply bg-bg-tertiary text-text-primary;
+  }
+
+  .btn-icon-danger {
+    @apply p-2 border-none bg-transparent rounded-md text-text-secondary transition-colors duration-150;
+  }
+
+  .btn-icon-danger:hover {
+    @apply bg-accent-red/20 text-accent-red;
+  }
+
+  /* Cards */
+  .card {
+    @apply bg-bg-secondary border border-border rounded-md overflow-hidden;
+  }
+
+  .card-body {
+    @apply p-4;
+  }
+
+  /* Tables */
+  .table {
+    @apply w-full border-collapse;
+  }
+
+  .table th,
+  .table td {
+    @apply py-3 px-4 text-left border-b border-border;
+  }
+
+  .table th {
+    @apply font-semibold text-text-secondary text-xs uppercase tracking-wide bg-bg-tertiary;
+  }
+
+  .table tr:hover {
+    @apply bg-bg-tertiary;
+  }
+
+  .table tr:last-child td {
+    @apply border-b-0;
+  }
+
+  /* Badges */
+  .badge {
+    @apply inline-flex items-center py-0.5 px-2 rounded-full text-xs font-medium;
+  }
+
+  .badge-success {
+    @apply bg-accent-green/20 text-accent-green;
+  }
+
+  .badge-danger {
+    @apply bg-accent-red/20 text-accent-red;
+  }
+
+  .badge-warning {
+    @apply bg-accent-yellow/20 text-accent-yellow;
+  }
+
+  .badge-info {
+    @apply bg-accent-blue/20 text-accent-blue;
+  }
+
+  .badge-secondary {
+    @apply bg-bg-tertiary text-text-secondary;
+  }
+
+  /* Stats */
+  .stats-grid {
+    @apply grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-4 mb-6;
+  }
+
+  .stat-card {
+    @apply bg-bg-secondary border border-border rounded-md p-4;
+  }
+
+  .stat-label {
+    @apply text-xs text-text-secondary uppercase tracking-wide mb-1;
+  }
+
+  .stat-value {
+    @apply text-2xl font-semibold;
+  }
+
+  /* Modal */
+  .modal-overlay {
+    @apply fixed inset-0 bg-black/50 flex items-center justify-center z-[1000];
+  }
+
+  .modal {
+    @apply bg-bg-secondary border border-border rounded-md w-full max-w-md max-h-[90vh] overflow-y-auto;
+  }
+
+  .modal-header {
+    @apply flex justify-between items-center p-4 border-b border-border;
+  }
+
+  .modal-body {
+    @apply p-4;
+  }
+
+  .modal-footer {
+    @apply flex justify-end gap-2 p-4 border-t border-border;
+  }
+
+  /* Modal Animations */
+  .modal-backdrop {
+    animation: fadeIn 0.2s ease-out;
+  }
+
+  .modal-content {
+    animation: modalSlideIn 0.3s ease-out;
+  }
+
+  /* Forms */
+  .form-group {
+    @apply mb-4;
+  }
+
+  .form-label {
+    @apply block text-sm font-medium mb-1.5;
+  }
+
+  .form-input {
+    @apply w-full py-2 px-3 border border-border rounded-md bg-bg-primary text-text-primary text-sm placeholder:text-text-secondary focus:outline-none focus:border-accent-blue focus:ring-2 focus:ring-accent-blue/20;
+  }
+
+  /* Utilities */
+  .actions {
+    @apply flex gap-1;
+  }
+
+  .action-buttons {
+    @apply flex items-center gap-1;
+  }
+
+  .truncate {
+    @apply max-w-[200px] overflow-hidden text-ellipsis whitespace-nowrap;
+  }
+
+  .code {
+    @apply font-mono text-[0.85em] bg-bg-tertiary py-0.5 px-1.5 rounded;
+  }
+
+  .logs-container {
+    @apply bg-bg-primary border border-border rounded-md p-4 font-mono text-[0.8125rem] leading-relaxed max-h-[400px] overflow-y-auto whitespace-pre-wrap break-all;
+  }
+
+  .loading {
+    @apply flex items-center justify-center py-8 text-text-secondary;
+  }
+
+  .spinner {
+    @apply w-6 h-6 border-2 border-border border-t-accent-blue rounded-full animate-spin mr-2;
+  }
+
+  /* Tabs */
+  .tabs {
+    @apply flex gap-0 border-b border-border mb-4;
+  }
+
+  .tab {
+    @apply py-3 px-4 bg-transparent border-none border-b-2 border-b-transparent text-text-secondary text-sm cursor-pointer -mb-px;
+  }
+
+  .tab:hover {
+    @apply text-text-primary;
+  }
+
+  .tab.active {
+    @apply text-accent-blue border-b-accent-blue;
+  }
+
+  /* Detail View */
+  .detail-grid {
+    @apply grid grid-cols-2 gap-4;
+  }
+
+  .detail-item {
+    @apply flex flex-col gap-1;
+  }
+
+  .detail-label {
+    @apply text-xs text-text-secondary uppercase tracking-wide;
+  }
+
+  .detail-value {
+    @apply text-sm;
+  }
+}
+
+@media (max-width: 768px) {
+  .detail-grid {
+    @apply grid-cols-1;
+  }
+}
+
+/* Animation Keyframes */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fadeOut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes modalSlideIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes slideInFromRight {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+/* Slide-in animation for lateral panel */
+@keyframes slideInFromRightPanel {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+.animate-slide-in {
+  animation: slideInFromRightPanel 0.3s ease-out;
+}
