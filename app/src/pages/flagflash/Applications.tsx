@@ -69,6 +69,7 @@ export default function ApplicationsPage() {
     await applicationsApi.delete(tenantId, deletingApp.id);
     setApplications(prev => prev.filter(a => a.id !== deletingApp.id));
     setDeletingApp(null);
+    window.dispatchEvent(new CustomEvent('appschanged'));
   };
 
   return (
@@ -240,6 +241,7 @@ function ApplicationModal({ app, tenantId, onClose, onSave }: ApplicationModalPr
       } else {
         await applicationsApi.create(tenantId, { name, slug, description });
       }
+      window.dispatchEvent(new CustomEvent('appschanged'));
       onSave();
       onClose();
     } catch (err: unknown) {

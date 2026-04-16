@@ -48,6 +48,16 @@ function SidebarApps({ tenantId }: { tenantId: string }) {
       .finally(() => setLoading(false));
   }, [tenantId]);
 
+  useEffect(() => {
+    const refetch = () => {
+      applicationsApi.list(tenantId, 1, 50)
+        .then(r => setApps(r.applications || []))
+        .catch(() => setApps([]));
+    };
+    window.addEventListener('appschanged', refetch);
+    return () => window.removeEventListener('appschanged', refetch);
+  }, [tenantId]);
+
   const visibleApps = apps.slice(0, MAX_VISIBLE);
   const hasMore = apps.length > MAX_VISIBLE;
 
