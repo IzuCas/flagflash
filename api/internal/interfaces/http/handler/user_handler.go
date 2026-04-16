@@ -353,8 +353,20 @@ func (h *UserHandler) DeleteUser(ctx context.Context, req *DeleteUserRequest) (*
 	}, nil
 }
 
+type InviteResponseDTO struct {
+	InviteID  string `json:"invite_id"`
+	Email     string `json:"email"`
+	Role      string `json:"role"`
+	ExpiresAt string `json:"expires_at"`
+	EmailSent bool   `json:"email_sent"`
+}
+
+type InviteResponse struct {
+	Body InviteResponseDTO
+}
+
 // InviteUser invites an existing user to a tenant
-func (h *UserHandler) InviteUser(ctx context.Context, req *InviteUserRequest) (*UserResponse, error) {
+func (h *UserHandler) InviteUser(ctx context.Context, req *InviteUserRequest) (*InviteResponse, error) {
 	tenantID, err := uuid.Parse(req.TenantID)
 	if err != nil {
 		return nil, huma.Error400BadRequest("Invalid tenant ID", err)
@@ -376,20 +388,13 @@ func (h *UserHandler) InviteUser(ctx context.Context, req *InviteUserRequest) (*
 		return nil, huma.Error400BadRequest("Failed to invite user", err)
 	}
 
-	membershipRole := string(result.User.Role)
-	if result.Membership != nil {
-		membershipRole = string(result.Membership.Role)
-	}
-
-	return &UserResponse{
-		Body: UserWithMembershipDTO{
-			ID:        result.User.ID,
-			Email:     result.User.Email,
-			Name:      result.User.Name,
-			Role:      membershipRole,
-			Active:    result.User.Active,
-			CreatedAt: result.User.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
-			UpdatedAt: result.User.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
+	return &InviteResponse{
+		Body: InviteResponseDTO{
+			InviteID:  result.InviteID.String(),
+			Email:     result.Email,
+			Role:      string(result.Role),
+			ExpiresAt: result.ExpiresAt,
+			EmailSent: result.EmailSent,
 		},
 	}, nil
 }

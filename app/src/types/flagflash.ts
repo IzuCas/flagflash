@@ -242,6 +242,33 @@ export interface InviteUserRequest {
   role?: UserRole;
 }
 
+export interface InviteResponse {
+  invite_id: string;
+  email: string;
+  role: string;
+  expires_at: string;
+  email_sent: boolean;
+}
+
+export interface InviteDetails {
+  email: string;
+  tenant_name: string;
+  role: string;
+  expires_at: string;
+  user_exists: boolean;
+}
+
+export interface AcceptInviteRequest {
+  token: string;
+  name?: string;
+  password?: string;
+}
+
+export interface AcceptInviteResponse {
+  message: string;
+  email: string;
+}
+
 // ==== Evaluation ====
 
 export interface EvaluationContext {

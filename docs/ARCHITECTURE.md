@@ -39,6 +39,7 @@
 ```
 Tenant
 ├── Users (memberships: owner / admin / member / viewer)
+├── Invite Tokens (convites pendentes por email)
 ├── Applications
 │   └── Environments (dev, staging, production)
 │       ├── Feature Flags (boolean / json / string / number)
@@ -89,6 +90,7 @@ flagflash/
 │   │   │   └── usage_metrics_service.go
 │   │   ├── infrastructure/
 │   │   │   ├── config/config.go
+│   │   │   ├── email/email.go       # Serviço SMTP para e-mails de convite
 │   │   │   ├── postgres/          # Implementações dos repositórios
 │   │   │   ├── redis/             # Cache (flag_cache, apikey_cache, etc.)
 │   │   │   └── websocket/hub.go   # WebSocket Hub
@@ -133,6 +135,7 @@ flagflash/
 | `audit_logs` | Histórico completo | `entity_type`, `old_value`/`new_value` JSONB |
 | `evaluation_events` | Eventos brutos do SDK | `flag_key`, `value`, `context` JSONB, `evaluated_at` |
 | `evaluation_summary` | Agregação horária | `(env_id, flag_id, hour_bucket)` UNIQUE |
+| `invite_tokens` | Tokens de convite | `token` UNIQUE, `email`, `tenant_id`, `role`, `expires_at`, `accepted_at` |
 
 **Seed padrão:**
 - Tenant `00000000-...-0001` — "Default Organization" (slug: `default`)
@@ -150,6 +153,8 @@ POST  /auth/register         # Cria tenant + usuário owner
 POST  /auth/refresh          # Renova JWT
 POST  /auth/switch-tenant    # Troca tenant ativo no token
 POST  /auth/change-password  # Altera senha do usuário logado
+GET   /auth/invite/{token}   # Valida token de convite (público)
+POST  /auth/invite/accept    # Aceita convite e define senha (público)
 ```
 
 ### SDK — API Key obrigatória
@@ -248,6 +253,30 @@ Tipos de mensagem:
   Client → Server:
     { "type": "ping" }                              # keep-alive
 ```
+
+## ✉️ Fluxo de Convites (Invite)
+
+```
+1. Admin/Owner convida email via POST /manage/tenants/{tid}/users/invite
+2. Backend gera token seguro (32 bytes hex, crypto/rand), salva em invite_tokens (TTL 7 dias)
+3. Se SMTP configurado → envia email com link: {APP_URL}/accept-invite?token={token}
+   Se SMTP não configurado → retorna link no response para copiar manualmente
+4. Usuário acessa link → frontend chama GET /auth/invite/{token} para validar
+5. Usuário preenche nome + senha → frontend chama POST /auth/invite/accept
+6. Backend cria usuário (se novo) + cria membership no tenant + marca token como aceito
+7. Usuário é redirecionado para login
+```
+
+**Variáveis de configuração SMTP:**
+
+| Variável | Padrão | Descrição |
+|----------|--------|-----------|
+| `SMTP_HOST` | `""` | Host SMTP (vazio = envio desabilitado) |
+| `SMTP_PORT` | `587` | Porta SMTP |
+| `SMTP_USERNAME` | `""` | Usuário para autenticação |
+| `SMTP_PASSWORD` | `""` | Senha para autenticação |
+| `SMTP_FROM` | `""` | Email remetente |
+| `APP_URL` | `http://localhost:5173` | URL base do frontend (usada nos links) |
 
 ## 🔐 Estratégia de Cache (Redis)
 
@@ -367,5 +396,6 @@ cd app && npm install && npm run dev
 - **CORS** configurável via `CORS_ALLOWED_ORIGINS`; credenciais não expostas
 - **SSL Postgres** default `prefer`
 - **API Keys** armazenadas como hash SHA-256; nunca o valor original
+- **Invite Tokens** expiram em 7 dias; token de 32 bytes hex gerado com `crypto/rand`
 - **Paginação** com LIMIT/OFFSET sempre parametrizado (sem SQL injection)
 - **SDK** valida formato da flag key com regex antes de qualquer chamada

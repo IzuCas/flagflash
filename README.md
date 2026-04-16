@@ -91,6 +91,12 @@ O frontend sobe em `http://localhost:5173`.
 | `REDIS_HOST` | `localhost` | — | Host do Redis |
 | `REDIS_PORT` | `6379` | — | Porta do Redis |
 | `REDIS_PASSWORD` | `""` | — | Senha do Redis |
+| `SMTP_HOST` | `""` | — | Host do servidor SMTP (deixe vazio para desabilitar envio de email) |
+| `SMTP_PORT` | `587` | — | Porta do servidor SMTP |
+| `SMTP_USERNAME` | `""` | — | Usuário SMTP (se requer autenticação) |
+| `SMTP_PASSWORD` | `""` | — | Senha SMTP |
+| `SMTP_FROM` | `""` | — | Endereço de email do remetente |
+| `APP_URL` | `http://localhost:5173` | — | URL base do frontend (usada nos links de convite) |
 
 > As variáveis podem ser definidas em um arquivo `.env` na raiz ou na pasta `api/`.
 
@@ -137,6 +143,8 @@ Todas as rotas são prefixadas com `/api/v1/flagflash`.
 | `POST` | `/auth/refresh` | Renovar token |
 | `POST` | `/auth/switch-tenant` | Trocar tenant ativo |
 | `POST` | `/auth/change-password` | Alterar senha |
+| `GET` | `/auth/invite/{token}` | Validar token de convite |
+| `POST` | `/auth/invite/accept` | Aceitar convite e definir senha |
 
 ### SDK (autenticação por API Key)
 
@@ -285,6 +293,7 @@ ws://localhost:9001/api/v1/flagflash/sdk/ws?api_key=ff_...
 | `audit_logs` | Histórico de mudanças |
 | `evaluation_events` | Eventos brutos de avaliação do SDK |
 | `evaluation_summary` | Agregação horária para métricas |
+| `invite_tokens` | Tokens de convite para novos usuários |
 
 As migrations ficam em `api/migrations/` e são aplicadas automaticamente pelo Docker Compose.
 

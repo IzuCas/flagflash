@@ -15,6 +15,7 @@ import (
 
 	"github.com/IzuCas/flagflash/internal/application/service"
 	"github.com/IzuCas/flagflash/internal/infrastructure/config"
+	"github.com/IzuCas/flagflash/internal/infrastructure/email"
 	"github.com/IzuCas/flagflash/internal/infrastructure/postgres"
 	"github.com/IzuCas/flagflash/internal/infrastructure/redis"
 	wsinfra "github.com/IzuCas/flagflash/internal/infrastructure/websocket"
@@ -100,6 +101,7 @@ func main() {
 	userMembershipRepo := postgres.NewUserTenantMembershipRepository(db.DB)
 	apiKeyRepo := postgres.NewAPIKeyRepo(db)
 	evalEventRepo := postgres.NewEvaluationEventRepository(db.DB)
+	inviteTokenRepo := postgres.NewInviteTokenRepository(db.DB)
 
 	// Initialize Redis cache (if available)
 	var flagCache service.FlagCache
@@ -135,7 +137,22 @@ func main() {
 	authService := service.NewAuthService(userRepo, tenantRepo, userMembershipRepo, auditRepo, cfg.JWT.Secret, cfg.JWT.Expiration)
 	auditLogService := service.NewAuditLogService(auditRepo)
 	usageMetricsService := service.NewUsageMetricsService(evalEventRepo)
-	userService := service.NewUserService(userRepo, userMembershipRepo, tenantRepo, auditRepo)
+
+	// Initialize email service
+	emailService := email.NewService(&email.Config{
+		Host:     cfg.SMTP.Host,
+		Port:     cfg.SMTP.Port,
+		Username: cfg.SMTP.Username,
+		Password: cfg.SMTP.Password,
+		From:     cfg.SMTP.From,
+	})
+	if emailService.IsConfigured() {
+		logger.Info("SMTP email service configured", logger.String("host", cfg.SMTP.Host))
+	} else {
+		logger.Warn("SMTP not configured - invite emails will not be sent. Set SMTP_HOST, SMTP_FROM etc.")
+	}
+
+	userService := service.NewUserService(userRepo, userMembershipRepo, tenantRepo, auditRepo, inviteTokenRepo, emailService, cfg.AppURL)
 
 	logger.Info("Services initialized")
 

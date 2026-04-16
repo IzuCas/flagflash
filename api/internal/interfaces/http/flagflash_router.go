@@ -75,6 +75,12 @@ func (fr *FlagFlashRouter) SetupRoutes(r chi.Router) {
 			authHandler.RegisterRoutes(publicAPI)
 		}
 
+		// Register public invite routes (validate, accept)
+		if fr.config.UserService != nil {
+			inviteHandler := handler.NewInviteHandler(fr.config.UserService)
+			inviteHandler.RegisterRoutes(publicAPI)
+		}
+
 		// Protected auth routes (switch-tenant, change-password)
 		r.Route("/auth", func(r chi.Router) {
 			if fr.config.AuthService != nil {

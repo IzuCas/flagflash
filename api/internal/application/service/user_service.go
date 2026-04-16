@@ -6,8 +6,15 @@ import (
 
 	"github.com/IzuCas/flagflash/internal/domain/entity"
 	"github.com/IzuCas/flagflash/internal/domain/repository"
+	"github.com/IzuCas/flagflash/internal/infrastructure/email"
 	"github.com/google/uuid"
 )
+
+// EmailSender abstracts email sending for testability
+type EmailSender interface {
+	IsConfigured() bool
+	SendInvite(to, inviterName, tenantName, role, acceptURL string) error
+}
 
 // UserService handles user and membership business logic
 type UserService struct {
@@ -15,6 +22,9 @@ type UserService struct {
 	membershipRepo repository.UserTenantMembershipRepository
 	tenantRepo     repository.TenantRepository
 	auditRepo      repository.AuditLogRepository
+	inviteRepo     repository.InviteTokenRepository
+	emailService   EmailSender
+	appURL         string
 }
 
 // NewUserService creates a new user service
@@ -23,12 +33,18 @@ func NewUserService(
 	membershipRepo repository.UserTenantMembershipRepository,
 	tenantRepo repository.TenantRepository,
 	auditRepo repository.AuditLogRepository,
+	inviteRepo repository.InviteTokenRepository,
+	emailSvc *email.Service,
+	appURL string,
 ) *UserService {
 	return &UserService{
 		userRepo:       userRepo,
 		membershipRepo: membershipRepo,
 		tenantRepo:     tenantRepo,
 		auditRepo:      auditRepo,
+		inviteRepo:     inviteRepo,
+		emailService:   emailSvc,
+		appURL:         appURL,
 	}
 }
 
@@ -455,53 +471,245 @@ type InviteUserRequest struct {
 	Role     entity.UserRole `json:"role"`
 }
 
-// InviteUserToTenant invites a user to a tenant (creates user if doesn't exist, or adds to tenant)
-func (s *UserService) InviteUserToTenant(ctx context.Context, req *InviteUserRequest, actorID string) (*entity.UserWithMembership, error) {
+// InviteUserToTenant creates an invite token and sends an email
+func (s *UserService) InviteUserToTenant(ctx context.Context, req *InviteUserRequest, actorID string) (*InviteResult, error) {
 	// Check if tenant exists
 	tenant, err := s.tenantRepo.GetByID(ctx, req.TenantID)
 	if err != nil {
 		return nil, fmt.Errorf("tenant not found: %w", err)
 	}
 
-	// Check if user already exists
-	user, err := s.userRepo.GetByEmail(ctx, req.Email)
-	if err == nil && user != nil {
-		// User exists, check if already a member
-		exists, _ := s.membershipRepo.ExistsByUserAndTenant(ctx, user.ID, req.TenantID)
+	actorUUID, err := uuid.Parse(actorID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid actor ID")
+	}
+
+	// Check hierarchy
+	if err := s.checkHierarchy(ctx, actorUUID, req.TenantID, req.Role); err != nil {
+		return nil, err
+	}
+
+	// If user already exists and is already a member, reject
+	existingUser, _ := s.userRepo.GetByEmail(ctx, req.Email)
+	if existingUser != nil {
+		exists, _ := s.membershipRepo.ExistsByUserAndTenant(ctx, existingUser.ID, req.TenantID)
 		if exists {
 			return nil, fmt.Errorf("user is already a member of this tenant")
 		}
-
-		// Add user to tenant
-		membership := entity.NewUserTenantMembership(user.ID, req.TenantID, req.Role)
-		if err := s.membershipRepo.Create(ctx, membership); err != nil {
-			return nil, fmt.Errorf("failed to create membership: %w", err)
-		}
-
-		// Create audit log
-		auditLog := entity.NewAuditLog(
-			tenant.ID,
-			entity.EntityTypeUser,
-			user.ID,
-			entity.AuditActionCreate,
-			actorID,
-			entity.ActorTypeUser,
-			nil,
-			map[string]interface{}{
-				"action": "invited_existing_user",
-				"email":  req.Email,
-				"role":   req.Role,
-			},
-			nil,
-		)
-		s.auditRepo.Create(ctx, auditLog)
-
-		return &entity.UserWithMembership{
-			User:       user,
-			Membership: membership,
-		}, nil
 	}
 
-	// User doesn't exist - return error, they need to register first or use CreateUser
-	return nil, fmt.Errorf("user with email '%s' not found. Please create a new user instead", req.Email)
+	// Check if there's already a pending invite
+	pending, _ := s.inviteRepo.GetPendingByEmailAndTenant(ctx, req.Email, req.TenantID)
+	if pending != nil {
+		return nil, fmt.Errorf("an invitation is already pending for this email")
+	}
+
+	// Create invite token
+	invite, err := entity.NewInviteToken(req.TenantID, req.Email, req.Role, actorUUID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate invite token: %w", err)
+	}
+
+	if err := s.inviteRepo.Create(ctx, invite); err != nil {
+		return nil, fmt.Errorf("failed to create invite: %w", err)
+	}
+
+	// Get inviter name
+	inviter, _ := s.userRepo.GetByID(ctx, actorUUID)
+	inviterName := "A team member"
+	if inviter != nil {
+		inviterName = inviter.Name
+	}
+
+	// Send email
+	emailSent := false
+	if s.emailService != nil && s.emailService.IsConfigured() {
+		acceptURL := fmt.Sprintf("%s/accept-invite?token=%s", s.appURL, invite.Token)
+		if err := s.emailService.SendInvite(req.Email, inviterName, tenant.Name, string(req.Role), acceptURL); err != nil {
+			// Log but don't fail - the invite was created and can be shared manually
+			fmt.Printf("WARNING: Failed to send invite email to %s: %v\n", req.Email, err)
+		} else {
+			emailSent = true
+		}
+	}
+
+	// Audit log
+	auditLog := entity.NewAuditLog(
+		tenant.ID,
+		entity.EntityTypeUser,
+		invite.ID,
+		entity.AuditActionCreate,
+		actorID,
+		entity.ActorTypeUser,
+		nil,
+		map[string]interface{}{
+			"action":     "invite_sent",
+			"email":      req.Email,
+			"role":       req.Role,
+			"email_sent": emailSent,
+		},
+		nil,
+	)
+	s.auditRepo.Create(ctx, auditLog)
+
+	return &InviteResult{
+		InviteID:  invite.ID,
+		Token:     invite.Token,
+		Email:     invite.Email,
+		Role:      invite.Role,
+		ExpiresAt: invite.ExpiresAt.Format("2006-01-02T15:04:05Z07:00"),
+		EmailSent: emailSent,
+	}, nil
+}
+
+// InviteResult represents the result of creating an invite
+type InviteResult struct {
+	InviteID  uuid.UUID       `json:"invite_id"`
+	Token     string          `json:"token"`
+	Email     string          `json:"email"`
+	Role      entity.UserRole `json:"role"`
+	ExpiresAt string          `json:"expires_at"`
+	EmailSent bool            `json:"email_sent"`
+}
+
+// ValidateInviteToken validates an invite token and returns its details
+func (s *UserService) ValidateInviteToken(ctx context.Context, token string) (*InviteDetails, error) {
+	invite, err := s.inviteRepo.GetByToken(ctx, token)
+	if err != nil {
+		return nil, fmt.Errorf("invalid invite token")
+	}
+
+	if invite.IsAccepted() {
+		return nil, fmt.Errorf("this invitation has already been accepted")
+	}
+
+	if invite.IsExpired() {
+		return nil, fmt.Errorf("this invitation has expired")
+	}
+
+	tenant, err := s.tenantRepo.GetByID(ctx, invite.TenantID)
+	if err != nil {
+		return nil, fmt.Errorf("tenant not found")
+	}
+
+	// Check if user already exists
+	existingUser, _ := s.userRepo.GetByEmail(ctx, invite.Email)
+	userExists := existingUser != nil
+
+	return &InviteDetails{
+		Email:      invite.Email,
+		TenantName: tenant.Name,
+		Role:       string(invite.Role),
+		ExpiresAt:  invite.ExpiresAt.Format("2006-01-02T15:04:05Z07:00"),
+		UserExists: userExists,
+	}, nil
+}
+
+// InviteDetails represents invite token details for the frontend
+type InviteDetails struct {
+	Email      string `json:"email"`
+	TenantName string `json:"tenant_name"`
+	Role       string `json:"role"`
+	ExpiresAt  string `json:"expires_at"`
+	UserExists bool   `json:"user_exists"`
+}
+
+// AcceptInviteRequest represents a request to accept an invite
+type AcceptInviteRequest struct {
+	Token    string `json:"token"`
+	Name     string `json:"name"`
+	Password string `json:"password"`
+}
+
+// AcceptInvite accepts an invitation - creates user if needed and adds to tenant
+func (s *UserService) AcceptInvite(ctx context.Context, req *AcceptInviteRequest) (*entity.UserWithMembership, error) {
+	invite, err := s.inviteRepo.GetByToken(ctx, req.Token)
+	if err != nil {
+		return nil, fmt.Errorf("invalid invite token")
+	}
+
+	if invite.IsAccepted() {
+		return nil, fmt.Errorf("this invitation has already been accepted")
+	}
+
+	if invite.IsExpired() {
+		return nil, fmt.Errorf("this invitation has expired")
+	}
+
+	// Check tenant exists
+	_, err = s.tenantRepo.GetByID(ctx, invite.TenantID)
+	if err != nil {
+		return nil, fmt.Errorf("tenant not found")
+	}
+
+	// Check if user already exists
+	user, _ := s.userRepo.GetByEmail(ctx, invite.Email)
+
+	if user == nil {
+		// Create new user
+		if req.Name == "" {
+			return nil, fmt.Errorf("name is required for new users")
+		}
+		if req.Password == "" {
+			return nil, fmt.Errorf("password is required for new users")
+		}
+		if len(req.Password) < 8 {
+			return nil, fmt.Errorf("password must be at least 8 characters")
+		}
+
+		user, err = entity.NewUser(invite.TenantID, invite.Email, req.Password, req.Name, invite.Role)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create user: %w", err)
+		}
+
+		if err := s.userRepo.Create(ctx, user); err != nil {
+			return nil, fmt.Errorf("failed to create user: %w", err)
+		}
+	}
+
+	// Check if already a member (race condition protection)
+	exists, _ := s.membershipRepo.ExistsByUserAndTenant(ctx, user.ID, invite.TenantID)
+	if exists {
+		// Mark invite as accepted even though user is already a member
+		invite.Accept()
+		s.inviteRepo.Update(ctx, invite)
+		return nil, fmt.Errorf("user is already a member of this tenant")
+	}
+
+	// Create membership
+	membership := entity.NewUserTenantMembership(user.ID, invite.TenantID, invite.Role)
+	if err := s.membershipRepo.Create(ctx, membership); err != nil {
+		return nil, fmt.Errorf("failed to create membership: %w", err)
+	}
+
+	// Mark invite as accepted
+	invite.Accept()
+	if err := s.inviteRepo.Update(ctx, invite); err != nil {
+		// Non-fatal - membership was created
+		fmt.Printf("WARNING: Failed to mark invite as accepted: %v\n", err)
+	}
+
+	// Audit log
+	auditLog := entity.NewAuditLog(
+		invite.TenantID,
+		entity.EntityTypeUser,
+		user.ID,
+		entity.AuditActionCreate,
+		user.ID.String(),
+		entity.ActorTypeUser,
+		nil,
+		map[string]interface{}{
+			"action":    "invite_accepted",
+			"email":     invite.Email,
+			"role":      invite.Role,
+			"invite_id": invite.ID,
+		},
+		nil,
+	)
+	s.auditRepo.Create(ctx, auditLog)
+
+	return &entity.UserWithMembership{
+		User:       user,
+		Membership: membership,
+	}, nil
 }

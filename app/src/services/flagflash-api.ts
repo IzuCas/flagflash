@@ -37,6 +37,10 @@ import type {
   CreateUserRequest,
   UpdateUserRequest,
   InviteUserRequest,
+  InviteResponse,
+  InviteDetails,
+  AcceptInviteRequest,
+  AcceptInviteResponse,
 } from '../types/flagflash';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || '';
@@ -341,12 +345,23 @@ export const usersApi = {
     return del(`/manage/tenants/${tenantId}/users/${userId}`);
   },
 
-  invite: async (tenantId: string, data: InviteUserRequest): Promise<UserWithMembership> => {
-    return post<UserWithMembership>(`/manage/tenants/${tenantId}/users/invite`, data);
+  invite: async (tenantId: string, data: InviteUserRequest): Promise<InviteResponse> => {
+    return post<InviteResponse>(`/manage/tenants/${tenantId}/users/invite`, data);
   },
 
   updateRole: async (tenantId: string, userId: string, role: string): Promise<UserWithMembership> => {
     return patch<UserWithMembership>(`/manage/tenants/${tenantId}/users/${userId}/role`, { role });
+  },
+};
+
+// ==== Invites (Public) ====
+export const inviteApi = {
+  validate: async (token: string): Promise<InviteDetails> => {
+    return get<InviteDetails>(`/auth/invite/${encodeURIComponent(token)}`);
+  },
+
+  accept: async (data: AcceptInviteRequest): Promise<AcceptInviteResponse> => {
+    return post<AcceptInviteResponse>('/auth/invite/accept', data);
   },
 };
 

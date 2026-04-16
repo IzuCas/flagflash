@@ -199,6 +199,23 @@ CREATE INDEX IF NOT EXISTS idx_evaluation_summary_flag_id ON evaluation_summary(
 CREATE INDEX IF NOT EXISTS idx_evaluation_summary_hour ON evaluation_summary(hour_bucket DESC);
 CREATE INDEX IF NOT EXISTS idx_evaluation_summary_flag_hour ON evaluation_summary(feature_flag_id, hour_bucket DESC);
 
+-- Invite Tokens
+CREATE TABLE IF NOT EXISTS invite_tokens (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    email VARCHAR(255) NOT NULL,
+    role VARCHAR(50) NOT NULL DEFAULT 'member',
+    token VARCHAR(128) UNIQUE NOT NULL,
+    invited_by UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    accepted_at TIMESTAMP WITH TIME ZONE NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_invite_tokens_token ON invite_tokens(token);
+CREATE INDEX IF NOT EXISTS idx_invite_tokens_email ON invite_tokens(email);
+CREATE INDEX IF NOT EXISTS idx_invite_tokens_tenant ON invite_tokens(tenant_id);
+
 -- Trigger function for updated_at
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$

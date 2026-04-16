@@ -14,6 +14,8 @@ type Config struct {
 	Database DatabaseConfig
 	Redis    RedisConfig
 	JWT      JWTConfig
+	SMTP     SMTPConfig
+	AppURL   string
 }
 
 // ServerConfig holds server-related configuration
@@ -49,6 +51,15 @@ type RedisConfig struct {
 type JWTConfig struct {
 	Secret     string
 	Expiration time.Duration
+}
+
+// SMTPConfig holds SMTP email configuration
+type SMTPConfig struct {
+	Host     string
+	Port     string
+	Username string
+	Password string
+	From     string
 }
 
 // Load loads configuration from environment variables using Viper
@@ -104,6 +115,14 @@ func Load() *Config {
 			Secret:     v.GetString("JWT_SECRET"),
 			Expiration: v.GetDuration("JWT_EXPIRATION"),
 		},
+		SMTP: SMTPConfig{
+			Host:     v.GetString("SMTP_HOST"),
+			Port:     v.GetString("SMTP_PORT"),
+			Username: v.GetString("SMTP_USERNAME"),
+			Password: v.GetString("SMTP_PASSWORD"),
+			From:     v.GetString("SMTP_FROM"),
+		},
+		AppURL: v.GetString("APP_URL"),
 	}
 }
 
@@ -136,6 +155,16 @@ func setDefaults(v *viper.Viper) {
 	// JWT_SECRET has no default — it MUST be set via environment variable.
 	// The application will refuse to start if it is absent.
 	v.SetDefault("JWT_EXPIRATION", "24h")
+
+	// SMTP defaults
+	v.SetDefault("SMTP_HOST", "")
+	v.SetDefault("SMTP_PORT", "587")
+	v.SetDefault("SMTP_USERNAME", "")
+	v.SetDefault("SMTP_PASSWORD", "")
+	v.SetDefault("SMTP_FROM", "")
+
+	// App URL
+	v.SetDefault("APP_URL", "http://localhost:5173")
 }
 
 // DSN returns the database connection string

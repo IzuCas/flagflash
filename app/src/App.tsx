@@ -18,6 +18,7 @@ import {
 
 import LoginPage from './pages/Login';
 import ChangePasswordPage from './pages/ChangePassword';
+import AcceptInvitePage from './pages/AcceptInvite';
 import SettingsPage from './pages/flagflash/Settings';
 // FlagFlash Pages
 import FlagFlashDashboard from './pages/flagflash/Dashboard';
@@ -313,6 +314,7 @@ function App() {
     <AuthProvider>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/accept-invite" element={<AcceptInvitePage />} />
         <Route path="/*" element={<ProtectedApp />} />
       </Routes>
     </AuthProvider>
