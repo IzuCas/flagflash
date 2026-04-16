@@ -117,7 +117,14 @@ export default function SelectTenantPage() {
                 <Building2 size={32} className="text-text-secondary" />
               </div>
               <h3 className="text-lg font-semibold text-text-primary mb-2">Nenhum tenant disponível</h3>
-              <p className="text-text-secondary">Você não tem acesso a nenhum tenant. Contate um administrador.</p>
+              <p className="text-text-secondary mb-6">Você não tem acesso a nenhum tenant. Contate um administrador.</p>
+              <button
+                onClick={() => setShowCreateModal(true)}
+                className="inline-flex items-center gap-2 px-5 py-2.5 bg-accent-purple hover:bg-accent-purple/80 text-white font-medium rounded-lg transition-colors"
+              >
+                <Plus size={18} />
+                Criar novo tenant
+              </button>
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

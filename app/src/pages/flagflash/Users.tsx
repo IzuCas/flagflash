@@ -11,12 +11,15 @@ import {
   Shield,
   Mail,
   ArrowLeft,
-  UserPlus
+  UserPlus,
+  Copy,
+  Check,
+  Link as LinkIcon
 } from 'lucide-react';
 import { usersApi, tenantsApi } from '../../services/flagflash-api';
 import { ConfirmDeleteModal, Modal } from '../../components';
 import { useAuth } from '../../contexts/AuthContext';
-import type { UserWithMembership, Tenant, UserRole } from '../../types/flagflash';
+import type { UserWithMembership, Tenant, UserRole, InviteResponse } from '../../types/flagflash';
 
 const ROLES: { value: UserRole; label: string; color: string }[] = [
   { value: 'owner', label: 'Owner', color: 'text-purple-400' },
@@ -290,8 +293,17 @@ function UserModal({ tenantId, user, onClose, onSave }: UserModalProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [mode, setMode] = useState<'create' | 'invite'>('create');
+  const [inviteResult, setInviteResult] = useState<InviteResponse | null>(null);
+  const [copied, setCopied] = useState(false);
 
   const isEditing = !!user;
+
+  const handleCopyLink = async () => {
+    if (!inviteResult?.invite_link) return;
+    await navigator.clipboard.writeText(inviteResult.invite_link);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -301,13 +313,17 @@ function UserModal({ tenantId, user, onClose, onSave }: UserModalProps) {
     try {
       if (isEditing) {
         await usersApi.update(tenantId, user.id, { name, role, active });
+        onSave();
+        onClose();
       } else if (mode === 'invite') {
-        await usersApi.invite(tenantId, { email, role });
+        const result = await usersApi.invite(tenantId, { email, role });
+        setInviteResult(result);
+        onSave();
       } else {
         await usersApi.create(tenantId, { email, password, name, role });
+        onSave();
+        onClose();
       }
-      onSave();
-      onClose();
     } catch (err: unknown) {
       const error = err as Error;
       setError(error.message || 'Failed to save user');
@@ -315,6 +331,70 @@ function UserModal({ tenantId, user, onClose, onSave }: UserModalProps) {
       setLoading(false);
     }
   };
+
+  // Show invite success view
+  if (inviteResult) {
+    return (
+      <Modal
+        title={
+          <span className="flex items-center gap-2">
+            <Mail size={20} className="text-green-400" />
+            Convite Enviado
+          </span>
+        }
+        onClose={onClose}
+        footer={
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-2 bg-accent-purple text-white rounded-lg hover:bg-accent-purple/90 transition-colors"
+          >
+            Fechar
+          </button>
+        }
+      >
+        <div className="space-y-4">
+          <div className="p-4 bg-green-500/10 border border-green-500/30 rounded-lg">
+            <p className="text-green-400 text-sm">
+              {inviteResult.email_sent
+                ? `Email de convite enviado para ${inviteResult.email}`
+                : `Convite gerado para ${inviteResult.email} (email não configurado)`}
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-text-secondary mb-2 flex items-center gap-2">
+              <LinkIcon size={14} />
+              Link do convite
+            </label>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                readOnly
+                value={inviteResult.invite_link}
+                className="flex-1 px-4 py-2 bg-bg-primary border border-border rounded-lg text-text-primary text-sm font-mono truncate focus:outline-none"
+              />
+              <button
+                type="button"
+                onClick={handleCopyLink}
+                className={`px-3 py-2 rounded-lg border transition-colors flex items-center gap-1.5 text-sm ${
+                  copied
+                    ? 'bg-green-500/10 border-green-500/30 text-green-400'
+                    : 'bg-bg-primary border-border text-text-secondary hover:text-text-primary hover:border-accent-purple'
+                }`}
+              >
+                {copied ? <Check size={16} /> : <Copy size={16} />}
+                {copied ? 'Copiado!' : 'Copiar'}
+              </button>
+            </div>
+            <p className="mt-2 text-xs text-text-secondary">
+              Compartilhe este link com o usuário. Expira em {new Date(inviteResult.expires_at).toLocaleDateString('pt-BR')}.
+            </p>
+          </div>
+        </div>
+      </Modal>
+    );
+  }
 
   return (
     <Modal

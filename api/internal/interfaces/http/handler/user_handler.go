@@ -15,11 +15,12 @@ import (
 // UserHandler handles user-related HTTP requests
 type UserHandler struct {
 	service *service.UserService
+	appURL  string
 }
 
 // NewUserHandler creates a new user handler
-func NewUserHandler(service *service.UserService) *UserHandler {
-	return &UserHandler{service: service}
+func NewUserHandler(service *service.UserService, appURL string) *UserHandler {
+	return &UserHandler{service: service, appURL: appURL}
 }
 
 // RegisterRoutes registers user routes
@@ -354,11 +355,12 @@ func (h *UserHandler) DeleteUser(ctx context.Context, req *DeleteUserRequest) (*
 }
 
 type InviteResponseDTO struct {
-	InviteID  string `json:"invite_id"`
-	Email     string `json:"email"`
-	Role      string `json:"role"`
-	ExpiresAt string `json:"expires_at"`
-	EmailSent bool   `json:"email_sent"`
+	InviteID   string `json:"invite_id"`
+	Email      string `json:"email"`
+	Role       string `json:"role"`
+	ExpiresAt  string `json:"expires_at"`
+	EmailSent  bool   `json:"email_sent"`
+	InviteLink string `json:"invite_link"`
 }
 
 type InviteResponse struct {
@@ -388,13 +390,16 @@ func (h *UserHandler) InviteUser(ctx context.Context, req *InviteUserRequest) (*
 		return nil, huma.Error400BadRequest("Failed to invite user", err)
 	}
 
+	inviteLink := h.appURL + "/accept-invite?token=" + result.Token
+
 	return &InviteResponse{
 		Body: InviteResponseDTO{
-			InviteID:  result.InviteID.String(),
-			Email:     result.Email,
-			Role:      string(result.Role),
-			ExpiresAt: result.ExpiresAt,
-			EmailSent: result.EmailSent,
+			InviteID:   result.InviteID.String(),
+			Email:      result.Email,
+			Role:       string(result.Role),
+			ExpiresAt:  result.ExpiresAt,
+			EmailSent:  result.EmailSent,
+			InviteLink: inviteLink,
 		},
 	}, nil
 }

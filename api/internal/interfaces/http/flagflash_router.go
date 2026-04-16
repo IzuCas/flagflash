@@ -31,6 +31,8 @@ type FlagFlashRouterConfig struct {
 	UserService          *service.UserService
 	// Repositories
 	UserRepo repository.UserRepository
+	// Config
+	AppURL string
 	// WebSocket
 	WSHandler http.Handler
 }
@@ -164,7 +166,7 @@ func (fr *FlagFlashRouter) SetupRoutes(r chi.Router) {
 			}
 
 			if fr.config.UserService != nil {
-				userHandler := handler.NewUserHandler(fr.config.UserService)
+				userHandler := handler.NewUserHandler(fr.config.UserService, fr.config.AppURL)
 				userHandler.RegisterRoutes(dashboardAPI)
 			}
 		})

@@ -248,6 +248,7 @@ export interface InviteResponse {
   role: string;
   expires_at: string;
   email_sent: boolean;
+  invite_link: string;
 }
 
 export interface InviteDetails {

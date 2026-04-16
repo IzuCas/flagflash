@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { 
   Building2, 
   Plus, 
@@ -13,8 +13,11 @@ import {
 } from 'lucide-react';
 import { tenantsApi, TenantWithRole } from '../../services/flagflash-api';
 import { ConfirmDeleteModal, Modal } from '../../components';
+import { useAuth } from '../../contexts/AuthContext';
 
 export default function TenantsPage() {
+  const { selectedTenant, clearTenant } = useAuth();
+  const navigate = useNavigate();
   const [tenants, setTenants] = useState<TenantWithRole[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -49,8 +52,15 @@ export default function TenantsPage() {
   const handleDelete = async () => {
     if (!deletingTenant) return;
     await tenantsApi.delete(deletingTenant.id);
-    setTenants(prev => prev.filter(t => t.id !== deletingTenant.id));
+    const remaining = tenants.filter(t => t.id !== deletingTenant.id);
+    setTenants(remaining);
     setDeletingTenant(null);
+
+    // If deleted the current tenant or no tenants left, redirect to select tenant
+    if (remaining.length === 0 || deletingTenant.id === selectedTenant?.id) {
+      clearTenant();
+      navigate('/select-tenant');
+    }
   };
 
   return (

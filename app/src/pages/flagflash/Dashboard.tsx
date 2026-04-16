@@ -12,8 +12,9 @@ import {
   Loader2,
   AlertCircle,
 } from 'lucide-react';
-import { tenantsApi } from '../../services/flagflash-api';
+import { tenantsApi, applicationsApi, environmentsApi, featureFlagsApi, apiKeysApi } from '../../services/flagflash-api';
 import type { TenantWithRole } from '../../services/flagflash-api';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface DashboardStats {
   totalTenants: number;
@@ -27,6 +28,7 @@ interface DashboardStats {
 }
 
 export default function DashboardPage() {
+  const { selectedTenant } = useAuth();
   const [tenants, setTenants] = useState<TenantWithRole[]>([]);
   const [stats, setStats] = useState<DashboardStats>({
     totalTenants: 0,
@@ -48,17 +50,56 @@ export default function DashboardPage() {
         const response = await tenantsApi.listMyTenants();
         const tenantList = response.tenants || [];
         setTenants(tenantList);
-        
-        // Calculate stats from tenants (in a real app, you'd have a dedicated stats endpoint)
+
+        const tenantId = selectedTenant?.id;
+        let totalApplications = 0;
+        let totalEnvironments = 0;
+        let totalFlags = 0;
+        let enabledFlags = 0;
+        let totalApiKeys = 0;
+        let activeApiKeys = 0;
+
+        if (tenantId) {
+          // Fetch applications
+          const appsRes = await applicationsApi.list(tenantId, 1, 100);
+          const apps = appsRes.applications || [];
+          totalApplications = apps.length;
+
+          // Fetch environments and flags for each application
+          const envPromises = apps.map(app => environmentsApi.list(tenantId, app.id, 1, 100));
+          const envResults = await Promise.all(envPromises);
+
+          const allEnvs = envResults.flatMap(r => r.environments || []);
+          totalEnvironments = allEnvs.length;
+
+          // Fetch flags for each environment
+          const flagPromises = apps.flatMap((app, i) =>
+            (envResults[i].environments || []).map(env =>
+              featureFlagsApi.list(tenantId, app.id, env.id, 1, 100)
+            )
+          );
+          const flagResults = await Promise.all(flagPromises);
+
+          const allFlags = flagResults.flatMap(r => r.flags || []);
+          totalFlags = allFlags.length;
+          enabledFlags = allFlags.filter(f => f.enabled).length;
+
+          // Fetch API keys
+          const keysRes = await apiKeysApi.list(tenantId, 1, 100);
+          const keys = keysRes.keys || [];
+          totalApiKeys = keys.length;
+          activeApiKeys = keys.filter(k => k.active).length;
+        }
+
         setStats({
           totalTenants: tenantList.length,
-          totalApplications: 0, // Would need to fetch from apps endpoint
-          totalEnvironments: 0,
-          totalFlags: 0,
-          enabledFlags: 0,
-          disabledFlags: 0,
-          totalApiKeys: 0,
-          activeApiKeys: 0,
+          totalApplications,
+          totalEnvironments,
+          totalFlags,
+          enabledFlags,
+          disabledFlags: totalFlags - enabledFlags,
+          totalApiKeys,
+          activeApiKeys,
         });
         setError(null);
       } catch (err) {
@@ -70,7 +111,7 @@ export default function DashboardPage() {
     };
 
     fetchData();
-  }, []);
+  }, [selectedTenant?.id]);
 
   const statCards = [
     {

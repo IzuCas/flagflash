@@ -203,6 +203,7 @@ func main() {
 		UsageMetricsService:  usageMetricsService,
 		UserService:          userService,
 		UserRepo:             userRepo,
+		AppURL:               cfg.AppURL,
 		WSHandler:            wsHub.NewSDKHandler(),
 	})
 
