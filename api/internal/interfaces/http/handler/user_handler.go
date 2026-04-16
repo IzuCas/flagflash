@@ -411,7 +411,7 @@ func (h *UserHandler) UpdateUserRole(ctx context.Context, req *UpdateUserRoleReq
 		Role: &role,
 	}
 
-	membership, err := h.service.UpdateMembership(ctx, userID, tenantID, updateReq, "")
+	membership, err := h.service.UpdateMembership(ctx, userID, tenantID, updateReq, middleware.GetUserIDFromContext(ctx))
 	if err != nil {
 		return nil, huma.Error500InternalServerError("Failed to update user role", err)
 	}

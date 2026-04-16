@@ -390,9 +390,27 @@ func (s *UserService) UpdateMembership(ctx context.Context, userID, tenantID uui
 		return nil, fmt.Errorf("membership not found: %w", err)
 	}
 
+	// Owners cannot be modified
+	if membership.Role == entity.UserRoleOwner {
+		return nil, fmt.Errorf("owner users cannot be modified")
+	}
+
+	// Verify actor has permission to manage the target's current role
+	actorUUID, err := uuid.Parse(actorID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid actor ID")
+	}
+	if err := s.checkHierarchy(ctx, actorUUID, tenantID, membership.Role); err != nil {
+		return nil, err
+	}
+
 	oldMembership := *membership
 
 	if req.Role != nil {
+		// Actor must also outrank the new role being assigned
+		if err := s.checkHierarchy(ctx, actorUUID, tenantID, *req.Role); err != nil {
+			return nil, fmt.Errorf("cannot assign role '%s': %w", *req.Role, err)
+		}
 		membership.Role = *req.Role
 	}
 	if req.Active != nil {
