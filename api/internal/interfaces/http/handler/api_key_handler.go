@@ -7,6 +7,7 @@ import (
 
 	"github.com/IzuCas/flagflash/internal/application/service"
 	"github.com/IzuCas/flagflash/internal/interfaces/http/dto"
+	"github.com/IzuCas/flagflash/internal/interfaces/http/middleware"
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/google/uuid"
 )
@@ -66,6 +67,11 @@ func (h *APIKeyHandler) RegisterRoutes(api huma.API) {
 
 // CreateAPIKey creates a new API key
 func (h *APIKeyHandler) CreateAPIKey(ctx context.Context, req *dto.CreateAPIKeyRequest) (*dto.APIKeyCreatedResponse, error) {
+	// SECURITY: Verify user has access to this tenant
+	if err := middleware.RequireTenantAccess(ctx, req.TenantID); err != nil {
+		return nil, err
+	}
+
 	tenantID, err := uuid.Parse(req.TenantID)
 	if err != nil {
 		return nil, huma.Error400BadRequest("Invalid tenant ID", err)
@@ -103,6 +109,11 @@ type GetAPIKeyRequest struct {
 
 // GetAPIKey retrieves an API key by ID
 func (h *APIKeyHandler) GetAPIKey(ctx context.Context, req *GetAPIKeyRequest) (*dto.APIKeyResponse, error) {
+	// SECURITY: Verify user has access to this tenant
+	if err := middleware.RequireTenantAccess(ctx, req.TenantID); err != nil {
+		return nil, err
+	}
+
 	keyID, err := uuid.Parse(req.KeyID)
 	if err != nil {
 		return nil, huma.Error400BadRequest("Invalid key ID", err)
@@ -125,6 +136,11 @@ type ListAPIKeysRequest struct {
 
 // ListAPIKeys lists API keys for a tenant
 func (h *APIKeyHandler) ListAPIKeys(ctx context.Context, req *ListAPIKeysRequest) (*dto.APIKeysListResponse, error) {
+	// SECURITY: Verify user has access to this tenant
+	if err := middleware.RequireTenantAccess(ctx, req.TenantID); err != nil {
+		return nil, err
+	}
+
 	tenantID, err := uuid.Parse(req.TenantID)
 	if err != nil {
 		return nil, huma.Error400BadRequest("Invalid tenant ID", err)
@@ -179,6 +195,11 @@ type RevokeAPIKeyRequest struct {
 
 // RevokeAPIKey revokes an API key
 func (h *APIKeyHandler) RevokeAPIKey(ctx context.Context, req *RevokeAPIKeyRequest) (*dto.APIKeyResponse, error) {
+	// SECURITY: Verify user has access to this tenant
+	if err := middleware.RequireTenantAccess(ctx, req.TenantID); err != nil {
+		return nil, err
+	}
+
 	keyID, err := uuid.Parse(req.KeyID)
 	if err != nil {
 		return nil, huma.Error400BadRequest("Invalid key ID", err)
@@ -204,6 +225,11 @@ type DeleteAPIKeyRequest struct {
 
 // DeleteAPIKey deletes an API key
 func (h *APIKeyHandler) DeleteAPIKey(ctx context.Context, req *DeleteAPIKeyRequest) (*struct{}, error) {
+	// SECURITY: Verify user has access to this tenant
+	if err := middleware.RequireTenantAccess(ctx, req.TenantID); err != nil {
+		return nil, err
+	}
+
 	keyID, err := uuid.Parse(req.KeyID)
 	if err != nil {
 		return nil, huma.Error400BadRequest("Invalid key ID", err)

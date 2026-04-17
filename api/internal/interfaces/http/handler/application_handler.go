@@ -66,6 +66,11 @@ func (h *ApplicationHandler) RegisterRoutes(api huma.API) {
 
 // CreateApplication creates a new application
 func (h *ApplicationHandler) CreateApplication(ctx context.Context, req *dto.CreateApplicationRequest) (*dto.ApplicationResponse, error) {
+	// SECURITY: Verify user has access to this tenant
+	if err := middleware.RequireTenantAccess(ctx, req.TenantID); err != nil {
+		return nil, err
+	}
+
 	tenantID, err := uuid.Parse(req.TenantID)
 	if err != nil {
 		return nil, huma.Error400BadRequest("Invalid tenant ID", err)
@@ -98,6 +103,11 @@ type GetApplicationRequest struct {
 
 // GetApplication retrieves an application by ID
 func (h *ApplicationHandler) GetApplication(ctx context.Context, req *GetApplicationRequest) (*dto.ApplicationResponse, error) {
+	// SECURITY: Verify user has access to this tenant
+	if err := middleware.RequireTenantAccess(ctx, req.TenantID); err != nil {
+		return nil, err
+	}
+
 	appID, err := uuid.Parse(req.AppID)
 	if err != nil {
 		return nil, huma.Error400BadRequest("Invalid application ID", err)
@@ -106,6 +116,12 @@ func (h *ApplicationHandler) GetApplication(ctx context.Context, req *GetApplica
 	app, err := h.service.GetByID(ctx, appID)
 	if err != nil {
 		return nil, huma.Error404NotFound("Application not found", err)
+	}
+
+	// SECURITY: Verify the application belongs to the requested tenant
+	reqTenantID, _ := uuid.Parse(req.TenantID)
+	if app.TenantID != reqTenantID {
+		return nil, huma.Error403Forbidden("Access denied: application belongs to another tenant")
 	}
 
 	return &dto.ApplicationResponse{
@@ -130,6 +146,11 @@ type ListApplicationsRequest struct {
 
 // ListApplications lists applications for a tenant
 func (h *ApplicationHandler) ListApplications(ctx context.Context, req *ListApplicationsRequest) (*dto.ApplicationsListResponse, error) {
+	// SECURITY: Verify user has access to this tenant
+	if err := middleware.RequireTenantAccess(ctx, req.TenantID); err != nil {
+		return nil, err
+	}
+
 	tenantID, err := uuid.Parse(req.TenantID)
 	if err != nil {
 		return nil, huma.Error400BadRequest("Invalid tenant ID", err)
@@ -164,6 +185,11 @@ func (h *ApplicationHandler) ListApplications(ctx context.Context, req *ListAppl
 
 // UpdateApplication updates an application
 func (h *ApplicationHandler) UpdateApplication(ctx context.Context, req *dto.UpdateApplicationRequest) (*dto.ApplicationResponse, error) {
+	// SECURITY: Verify user has access to this tenant
+	if err := middleware.RequireTenantAccess(ctx, req.TenantID); err != nil {
+		return nil, err
+	}
+
 	appID, err := uuid.Parse(req.AppID)
 	if err != nil {
 		return nil, huma.Error400BadRequest("Invalid application ID", err)
@@ -196,6 +222,11 @@ type DeleteApplicationRequest struct {
 
 // DeleteApplication deletes an application
 func (h *ApplicationHandler) DeleteApplication(ctx context.Context, req *DeleteApplicationRequest) (*struct{}, error) {
+	// SECURITY: Verify user has access to this tenant
+	if err := middleware.RequireTenantAccess(ctx, req.TenantID); err != nil {
+		return nil, err
+	}
+
 	appID, err := uuid.Parse(req.AppID)
 	if err != nil {
 		return nil, huma.Error400BadRequest("Invalid application ID", err)

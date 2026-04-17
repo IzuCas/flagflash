@@ -168,6 +168,11 @@ type MessageResponse struct {
 
 // ListUsers lists all users for a tenant with pagination
 func (h *UserHandler) ListUsers(ctx context.Context, req *ListUsersRequest) (*UsersListResponse, error) {
+	// SECURITY: Verify user has access to this tenant
+	if err := middleware.RequireTenantAccess(ctx, req.TenantID); err != nil {
+		return nil, err
+	}
+
 	tenantID, err := uuid.Parse(req.TenantID)
 	if err != nil {
 		return nil, huma.Error400BadRequest("Invalid tenant ID", err)
@@ -215,6 +220,11 @@ func (h *UserHandler) ListUsers(ctx context.Context, req *ListUsersRequest) (*Us
 
 // GetUser retrieves a user by ID
 func (h *UserHandler) GetUser(ctx context.Context, req *GetUserRequest) (*UserResponse, error) {
+	// SECURITY: Verify user has access to this tenant
+	if err := middleware.RequireTenantAccess(ctx, req.TenantID); err != nil {
+		return nil, err
+	}
+
 	userID, err := uuid.Parse(req.UserID)
 	if err != nil {
 		return nil, huma.Error400BadRequest("Invalid user ID", err)
@@ -240,6 +250,11 @@ func (h *UserHandler) GetUser(ctx context.Context, req *GetUserRequest) (*UserRe
 
 // CreateUser creates a new user
 func (h *UserHandler) CreateUser(ctx context.Context, req *CreateUserRequest) (*UserResponse, error) {
+	// SECURITY: Verify user has access to this tenant
+	if err := middleware.RequireTenantAccess(ctx, req.TenantID); err != nil {
+		return nil, err
+	}
+
 	tenantID, err := uuid.Parse(req.TenantID)
 	if err != nil {
 		return nil, huma.Error400BadRequest("Invalid tenant ID", err)
@@ -283,6 +298,11 @@ func (h *UserHandler) CreateUser(ctx context.Context, req *CreateUserRequest) (*
 
 // UpdateUser updates a user
 func (h *UserHandler) UpdateUser(ctx context.Context, req *UpdateUserRequest) (*UserResponse, error) {
+	// SECURITY: Verify user has access to this tenant
+	if err := middleware.RequireTenantAccess(ctx, req.TenantID); err != nil {
+		return nil, err
+	}
+
 	tenantID, err := uuid.Parse(req.TenantID)
 	if err != nil {
 		return nil, huma.Error400BadRequest("Invalid tenant ID", err)
@@ -331,6 +351,11 @@ func (h *UserHandler) UpdateUser(ctx context.Context, req *UpdateUserRequest) (*
 
 // DeleteUser removes a user from a tenant
 func (h *UserHandler) DeleteUser(ctx context.Context, req *DeleteUserRequest) (*MessageResponse, error) {
+	// SECURITY: Verify user has access to this tenant
+	if err := middleware.RequireTenantAccess(ctx, req.TenantID); err != nil {
+		return nil, err
+	}
+
 	tenantID, err := uuid.Parse(req.TenantID)
 	if err != nil {
 		return nil, huma.Error400BadRequest("Invalid tenant ID", err)

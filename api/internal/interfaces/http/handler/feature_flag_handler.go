@@ -124,6 +124,11 @@ type ListFeatureFlagsRequest struct {
 }
 
 func (h *FeatureFlagHandler) CreateFeatureFlag(ctx context.Context, req *dto.CreateFeatureFlagRequest) (*dto.FeatureFlagResponse, error) {
+	// SECURITY: Verify user has access to this tenant
+	if err := middleware.RequireTenantAccess(ctx, req.TenantID); err != nil {
+		return nil, err
+	}
+
 	envID, err := uuid.Parse(req.EnvID)
 	if err != nil {
 		return nil, huma.Error400BadRequest("Invalid environment ID", err)
@@ -159,6 +164,11 @@ func (h *FeatureFlagHandler) CreateFeatureFlag(ctx context.Context, req *dto.Cre
 }
 
 func (h *FeatureFlagHandler) GetFeatureFlag(ctx context.Context, req *GetFeatureFlagRequest) (*dto.FeatureFlagResponse, error) {
+	// SECURITY: Verify user has access to this tenant
+	if err := middleware.RequireTenantAccess(ctx, req.TenantID); err != nil {
+		return nil, err
+	}
+
 	flagID, err := uuid.Parse(req.FlagID)
 	if err != nil {
 		return nil, huma.Error400BadRequest("Invalid flag ID", err)
@@ -173,6 +183,11 @@ func (h *FeatureFlagHandler) GetFeatureFlag(ctx context.Context, req *GetFeature
 }
 
 func (h *FeatureFlagHandler) GetFeatureFlagByKey(ctx context.Context, req *GetFeatureFlagByKeyRequest) (*dto.FeatureFlagResponse, error) {
+	// SECURITY: Verify user has access to this tenant
+	if err := middleware.RequireTenantAccess(ctx, req.TenantID); err != nil {
+		return nil, err
+	}
+
 	envID, err := uuid.Parse(req.EnvID)
 	if err != nil {
 		return nil, huma.Error400BadRequest("Invalid environment ID", err)
@@ -187,6 +202,11 @@ func (h *FeatureFlagHandler) GetFeatureFlagByKey(ctx context.Context, req *GetFe
 }
 
 func (h *FeatureFlagHandler) UpdateFeatureFlag(ctx context.Context, req *dto.UpdateFeatureFlagRequest) (*dto.FeatureFlagResponse, error) {
+	// SECURITY: Verify user has access to this tenant
+	if err := middleware.RequireTenantAccess(ctx, req.TenantID); err != nil {
+		return nil, err
+	}
+
 	flagID, err := uuid.Parse(req.FlagID)
 	if err != nil {
 		return nil, huma.Error400BadRequest("Invalid flag ID", err)
@@ -218,6 +238,11 @@ func (h *FeatureFlagHandler) UpdateFeatureFlag(ctx context.Context, req *dto.Upd
 }
 
 func (h *FeatureFlagHandler) ToggleFeatureFlag(ctx context.Context, req *dto.ToggleFeatureFlagRequest) (*dto.FeatureFlagResponse, error) {
+	// SECURITY: Verify user has access to this tenant
+	if err := middleware.RequireTenantAccess(ctx, req.TenantID); err != nil {
+		return nil, err
+	}
+
 	flagID, err := uuid.Parse(req.FlagID)
 	if err != nil {
 		return nil, huma.Error400BadRequest("Invalid flag ID", err)
@@ -241,6 +266,11 @@ func (h *FeatureFlagHandler) ToggleFeatureFlag(ctx context.Context, req *dto.Tog
 }
 
 func (h *FeatureFlagHandler) DeleteFeatureFlag(ctx context.Context, req *DeleteFeatureFlagRequest) (*struct{}, error) {
+	// SECURITY: Verify user has access to this tenant
+	if err := middleware.RequireTenantAccess(ctx, req.TenantID); err != nil {
+		return nil, err
+	}
+
 	flagID, err := uuid.Parse(req.FlagID)
 	if err != nil {
 		return nil, huma.Error400BadRequest("Invalid flag ID", err)
@@ -255,6 +285,11 @@ func (h *FeatureFlagHandler) DeleteFeatureFlag(ctx context.Context, req *DeleteF
 }
 
 func (h *FeatureFlagHandler) ListFeatureFlags(ctx context.Context, req *ListFeatureFlagsRequest) (*dto.FeatureFlagsListResponse, error) {
+	// SECURITY: Verify user has access to this tenant
+	if err := middleware.RequireTenantAccess(ctx, req.TenantID); err != nil {
+		return nil, err
+	}
+
 	envID, err := uuid.Parse(req.EnvID)
 	if err != nil {
 		return nil, huma.Error400BadRequest("Invalid environment ID", err)
@@ -286,6 +321,11 @@ func (h *FeatureFlagHandler) ListFeatureFlags(ctx context.Context, req *ListFeat
 }
 
 func (h *FeatureFlagHandler) CopyFeatureFlags(ctx context.Context, req *dto.CopyFeatureFlagsRequest) (*dto.CopyFeatureFlagsResponse, error) {
+	// SECURITY: Verify user has access to this tenant
+	if err := middleware.RequireTenantAccess(ctx, req.TenantID); err != nil {
+		return nil, err
+	}
+
 	sourceEnvID, err := uuid.Parse(req.SourceEnvID)
 	if err != nil {
 		return nil, huma.Error400BadRequest("Invalid source environment ID", err)

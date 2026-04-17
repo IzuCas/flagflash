@@ -91,10 +91,22 @@ type ListTenantsRequest struct {
 	Limit int `query:"limit" default:"20" minimum:"1" maximum:"100"`
 }
 
-// ListTenants lists all tenants with pagination
+// ListTenants lists tenants accessible to the current user
+// SECURITY: Removed ability to list ALL tenants - now redirects to ListMyTenants
 func (h *TenantHandler) ListTenants(ctx context.Context, req *ListTenantsRequest) (*dto.TenantsListResponse, error) {
-	offset := (req.Page - 1) * req.Limit
-	tenants, total, err := h.service.List(ctx, req.Limit, offset)
+	// SECURITY FIX: Users should only see their own tenants, not all tenants in the system
+	// Redirect to user-specific tenant list
+	userIDStr := middleware.GetUserIDFromContext(ctx)
+	if userIDStr == "" {
+		return nil, huma.Error401Unauthorized("User not authenticated")
+	}
+
+	userID, err := uuid.Parse(userIDStr)
+	if err != nil {
+		return nil, huma.Error400BadRequest("Invalid user ID")
+	}
+
+	tenants, err := h.service.ListByUser(ctx, userID)
 	if err != nil {
 		return nil, huma.Error500InternalServerError("Failed to list tenants", err)
 	}
@@ -102,15 +114,14 @@ func (h *TenantHandler) ListTenants(ctx context.Context, req *ListTenantsRequest
 	tenantDTOs := make([]dto.TenantDTO, len(tenants))
 	for i, t := range tenants {
 		tenantDTOs[i] = dto.TenantDTO{
-			ID:        t.ID,
-			Name:      t.Name,
-			Slug:      t.Slug,
-			CreatedAt: t.CreatedAt,
-			UpdatedAt: t.UpdatedAt,
+			ID:        t.Tenant.ID,
+			Name:      t.Tenant.Name,
+			Slug:      t.Tenant.Slug,
+			CreatedAt: t.Tenant.CreatedAt,
+			UpdatedAt: t.Tenant.UpdatedAt,
 		}
 	}
 
-	totalPages := (total + req.Limit - 1) / req.Limit
 	return &dto.TenantsListResponse{
 		Body: struct {
 			Tenants    []dto.TenantDTO        `json:"tenants"`
@@ -118,10 +129,10 @@ func (h *TenantHandler) ListTenants(ctx context.Context, req *ListTenantsRequest
 		}{
 			Tenants: tenantDTOs,
 			Pagination: dto.PaginationResponse{
-				Page:       req.Page,
-				Limit:      req.Limit,
-				Total:      int64(total),
-				TotalPages: totalPages,
+				Page:       1,
+				Limit:      len(tenantDTOs),
+				Total:      int64(len(tenantDTOs)),
+				TotalPages: 1,
 			},
 		},
 	}, nil
@@ -197,6 +208,11 @@ func (h *TenantHandler) CreateTenant(ctx context.Context, req *dto.CreateTenantR
 
 // GetTenant retrieves a tenant by ID
 func (h *TenantHandler) GetTenant(ctx context.Context, req *GetTenantRequest) (*dto.TenantResponse, error) {
+	// SECURITY: Verify user has access to this tenant
+	if err := middleware.RequireTenantAccess(ctx, req.TenantID); err != nil {
+		return nil, err
+	}
+
 	id, err := uuid.Parse(req.TenantID)
 	if err != nil {
 		return nil, huma.Error400BadRequest("Invalid tenant ID", err)
@@ -220,6 +236,11 @@ func (h *TenantHandler) GetTenant(ctx context.Context, req *GetTenantRequest) (*
 
 // UpdateTenant updates a tenant
 func (h *TenantHandler) UpdateTenant(ctx context.Context, req *dto.UpdateTenantRequest) (*dto.TenantResponse, error) {
+	// SECURITY: Verify user has access to this tenant
+	if err := middleware.RequireTenantAccess(ctx, req.TenantID); err != nil {
+		return nil, err
+	}
+
 	id, err := uuid.Parse(req.TenantID)
 	if err != nil {
 		return nil, huma.Error400BadRequest("Invalid tenant ID", err)
@@ -253,6 +274,11 @@ type DeleteTenantRequest struct {
 
 // DeleteTenant deletes a tenant
 func (h *TenantHandler) DeleteTenant(ctx context.Context, req *DeleteTenantRequest) (*struct{}, error) {
+	// SECURITY: Verify user has access to this tenant
+	if err := middleware.RequireTenantAccess(ctx, req.TenantID); err != nil {
+		return nil, err
+	}
+
 	id, err := uuid.Parse(req.TenantID)
 	if err != nil {
 		return nil, huma.Error400BadRequest("Invalid tenant ID", err)
@@ -292,6 +318,11 @@ type TenantStats struct {
 
 // GetTenantStats retrieves tenant statistics
 func (h *TenantHandler) GetTenantStats(ctx context.Context, req *GetTenantStatsRequest) (*TenantStatsResponse, error) {
+	// SECURITY: Verify user has access to this tenant
+	if err := middleware.RequireTenantAccess(ctx, req.TenantID); err != nil {
+		return nil, err
+	}
+
 	id, err := uuid.Parse(req.TenantID)
 	if err != nil {
 		return nil, huma.Error400BadRequest("Invalid tenant ID", err)

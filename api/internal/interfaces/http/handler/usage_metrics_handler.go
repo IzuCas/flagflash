@@ -7,6 +7,7 @@ import (
 	"github.com/IzuCas/flagflash/internal/application/service"
 	"github.com/IzuCas/flagflash/internal/domain/entity"
 	"github.com/IzuCas/flagflash/internal/interfaces/http/dto"
+	"github.com/IzuCas/flagflash/internal/interfaces/http/middleware"
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/google/uuid"
@@ -81,6 +82,11 @@ func (h *UsageMetricsHandler) RegisterRoutes(api huma.API) {
 
 // GetUsageMetrics returns aggregated usage metrics
 func (h *UsageMetricsHandler) GetUsageMetrics(ctx context.Context, req *dto.UsageMetricsRequest) (*dto.UsageMetricsResponse, error) {
+	// SECURITY: Verify user has access to this tenant
+	if err := middleware.RequireTenantAccess(ctx, req.TenantID); err != nil {
+		return nil, err
+	}
+
 	tenantID, err := uuid.Parse(req.TenantID)
 	if err != nil {
 		return nil, huma.Error400BadRequest("Invalid tenant ID")
@@ -131,6 +137,11 @@ func (h *UsageMetricsHandler) GetUsageMetrics(ctx context.Context, req *dto.Usag
 
 // GetTimeline returns time-series data
 func (h *UsageMetricsHandler) GetTimeline(ctx context.Context, req *dto.UsageMetricsRequest) (*dto.TimelineResponse, error) {
+	// SECURITY: Verify user has access to this tenant
+	if err := middleware.RequireTenantAccess(ctx, req.TenantID); err != nil {
+		return nil, err
+	}
+
 	tenantID, err := uuid.Parse(req.TenantID)
 	if err != nil {
 		return nil, huma.Error400BadRequest("Invalid tenant ID")
@@ -185,6 +196,11 @@ func (h *UsageMetricsHandler) GetTimeline(ctx context.Context, req *dto.UsageMet
 
 // GetFlagMetrics returns metrics by flag
 func (h *UsageMetricsHandler) GetFlagMetrics(ctx context.Context, req *dto.UsageMetricsRequest) (*dto.FlagMetricsResponse, error) {
+	// SECURITY: Verify user has access to this tenant
+	if err := middleware.RequireTenantAccess(ctx, req.TenantID); err != nil {
+		return nil, err
+	}
+
 	tenantID, err := uuid.Parse(req.TenantID)
 	if err != nil {
 		return nil, huma.Error400BadRequest("Invalid tenant ID")
@@ -229,6 +245,11 @@ func (h *UsageMetricsHandler) GetEnvironmentMetrics(ctx context.Context, req *st
 	StartDate string `query:"start_date"`
 	EndDate   string `query:"end_date"`
 }) (*dto.EnvironmentMetricsResponse, error) {
+	// SECURITY: Verify user has access to this tenant
+	if err := middleware.RequireTenantAccess(ctx, req.TenantID); err != nil {
+		return nil, err
+	}
+
 	tenantID, err := uuid.Parse(req.TenantID)
 	if err != nil {
 		return nil, huma.Error400BadRequest("Invalid tenant ID")
@@ -272,6 +293,11 @@ func (h *UsageMetricsHandler) RecordEvaluation(ctx context.Context, req *struct 
 		SDKVersion    *string                `json:"sdk_version,omitempty"`
 	}
 }) (*struct{}, error) {
+	// SECURITY: Verify user has access to this tenant
+	if err := middleware.RequireTenantAccess(ctx, req.TenantID); err != nil {
+		return nil, err
+	}
+
 	tenantID, err := uuid.Parse(req.TenantID)
 	if err != nil {
 		return nil, huma.Error400BadRequest("Invalid tenant ID")
@@ -315,6 +341,11 @@ func (h *UsageMetricsHandler) RecordEvaluationBatch(ctx context.Context, req *st
 		} `json:"events" required:"true"`
 	}
 }) (*struct{}, error) {
+	// SECURITY: Verify user has access to this tenant
+	if err := middleware.RequireTenantAccess(ctx, req.TenantID); err != nil {
+		return nil, err
+	}
+
 	tenantID, err := uuid.Parse(req.TenantID)
 	if err != nil {
 		return nil, huma.Error400BadRequest("Invalid tenant ID")

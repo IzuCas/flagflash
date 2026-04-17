@@ -74,6 +74,11 @@ func (h *EnvironmentHandler) RegisterRoutes(api huma.API) {
 
 // CreateEnvironment creates a new environment
 func (h *EnvironmentHandler) CreateEnvironment(ctx context.Context, req *dto.CreateEnvironmentRequest) (*dto.EnvironmentResponse, error) {
+	// SECURITY: Verify user has access to this tenant
+	if err := middleware.RequireTenantAccess(ctx, req.TenantID); err != nil {
+		return nil, err
+	}
+
 	appID, err := uuid.Parse(req.AppID)
 	if err != nil {
 		return nil, huma.Error400BadRequest("Invalid application ID", err)
@@ -108,6 +113,11 @@ type GetEnvironmentRequest struct {
 
 // GetEnvironment retrieves an environment by ID
 func (h *EnvironmentHandler) GetEnvironment(ctx context.Context, req *GetEnvironmentRequest) (*dto.EnvironmentResponse, error) {
+	// SECURITY: Verify user has access to this tenant
+	if err := middleware.RequireTenantAccess(ctx, req.TenantID); err != nil {
+		return nil, err
+	}
+
 	envID, err := uuid.Parse(req.EnvID)
 	if err != nil {
 		return nil, huma.Error400BadRequest("Invalid environment ID", err)
@@ -140,6 +150,11 @@ type ListEnvironmentsRequest struct {
 
 // ListEnvironments lists environments for an application
 func (h *EnvironmentHandler) ListEnvironments(ctx context.Context, req *ListEnvironmentsRequest) (*dto.EnvironmentsListResponse, error) {
+	// SECURITY: Verify user has access to this tenant
+	if err := middleware.RequireTenantAccess(ctx, req.TenantID); err != nil {
+		return nil, err
+	}
+
 	appID, err := uuid.Parse(req.AppID)
 	if err != nil {
 		return nil, huma.Error400BadRequest("Invalid application ID", err)
@@ -170,6 +185,11 @@ func (h *EnvironmentHandler) ListEnvironments(ctx context.Context, req *ListEnvi
 
 // UpdateEnvironment updates an environment
 func (h *EnvironmentHandler) UpdateEnvironment(ctx context.Context, req *dto.UpdateEnvironmentRequest) (*dto.EnvironmentResponse, error) {
+	// SECURITY: Verify user has access to this tenant
+	if err := middleware.RequireTenantAccess(ctx, req.TenantID); err != nil {
+		return nil, err
+	}
+
 	envID, err := uuid.Parse(req.EnvID)
 	if err != nil {
 		return nil, huma.Error400BadRequest("Invalid environment ID", err)
@@ -204,6 +224,11 @@ type DeleteEnvironmentRequest struct {
 
 // DeleteEnvironment deletes an environment
 func (h *EnvironmentHandler) DeleteEnvironment(ctx context.Context, req *DeleteEnvironmentRequest) (*struct{}, error) {
+	// SECURITY: Verify user has access to this tenant
+	if err := middleware.RequireTenantAccess(ctx, req.TenantID); err != nil {
+		return nil, err
+	}
+
 	envID, err := uuid.Parse(req.EnvID)
 	if err != nil {
 		return nil, huma.Error400BadRequest("Invalid environment ID", err)
@@ -231,6 +256,11 @@ type CopyEnvironmentRequest struct {
 
 // CopyEnvironment copies an environment with all its flags
 func (h *EnvironmentHandler) CopyEnvironment(ctx context.Context, req *CopyEnvironmentRequest) (*dto.EnvironmentResponse, error) {
+	// SECURITY: Verify user has access to this tenant
+	if err := middleware.RequireTenantAccess(ctx, req.TenantID); err != nil {
+		return nil, err
+	}
+
 	envID, err := uuid.Parse(req.EnvID)
 	if err != nil {
 		return nil, huma.Error400BadRequest("Invalid environment ID", err)

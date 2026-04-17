@@ -8,6 +8,7 @@ import (
 	"github.com/IzuCas/flagflash/internal/application/service"
 	"github.com/IzuCas/flagflash/internal/domain/entity"
 	"github.com/IzuCas/flagflash/internal/interfaces/http/dto"
+	"github.com/IzuCas/flagflash/internal/interfaces/http/middleware"
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/google/uuid"
 )
@@ -75,6 +76,11 @@ func (h *TargetingRuleHandler) RegisterRoutes(api huma.API) {
 
 // CreateTargetingRule creates a new targeting rule
 func (h *TargetingRuleHandler) CreateTargetingRule(ctx context.Context, req *dto.CreateTargetingRuleRequest) (*dto.TargetingRuleResponse, error) {
+	// SECURITY: Verify user has access to this tenant
+	if err := middleware.RequireTenantAccess(ctx, req.TenantID); err != nil {
+		return nil, err
+	}
+
 	flagID, err := uuid.Parse(req.FlagID)
 	if err != nil {
 		return nil, huma.Error400BadRequest("Invalid flag ID", err)
@@ -112,6 +118,11 @@ type GetTargetingRuleRequest struct {
 
 // GetTargetingRule retrieves a targeting rule by ID
 func (h *TargetingRuleHandler) GetTargetingRule(ctx context.Context, req *GetTargetingRuleRequest) (*dto.TargetingRuleResponse, error) {
+	// SECURITY: Verify user has access to this tenant
+	if err := middleware.RequireTenantAccess(ctx, req.TenantID); err != nil {
+		return nil, err
+	}
+
 	ruleID, err := uuid.Parse(req.RuleID)
 	if err != nil {
 		return nil, huma.Error400BadRequest("Invalid rule ID", err)
@@ -135,6 +146,11 @@ type ListTargetingRulesRequest struct {
 
 // ListTargetingRules lists targeting rules for a flag
 func (h *TargetingRuleHandler) ListTargetingRules(ctx context.Context, req *ListTargetingRulesRequest) (*dto.TargetingRulesListResponse, error) {
+	// SECURITY: Verify user has access to this tenant
+	if err := middleware.RequireTenantAccess(ctx, req.TenantID); err != nil {
+		return nil, err
+	}
+
 	flagID, err := uuid.Parse(req.FlagID)
 	if err != nil {
 		return nil, huma.Error400BadRequest("Invalid flag ID", err)
@@ -156,6 +172,11 @@ func (h *TargetingRuleHandler) ListTargetingRules(ctx context.Context, req *List
 
 // UpdateTargetingRule updates a targeting rule
 func (h *TargetingRuleHandler) UpdateTargetingRule(ctx context.Context, req *dto.UpdateTargetingRuleRequest) (*dto.TargetingRuleResponse, error) {
+	// SECURITY: Verify user has access to this tenant
+	if err := middleware.RequireTenantAccess(ctx, req.TenantID); err != nil {
+		return nil, err
+	}
+
 	ruleID, err := uuid.Parse(req.RuleID)
 	if err != nil {
 		return nil, huma.Error400BadRequest("Invalid rule ID", err)
@@ -204,6 +225,11 @@ type DeleteTargetingRuleRequest struct {
 
 // DeleteTargetingRule deletes a targeting rule
 func (h *TargetingRuleHandler) DeleteTargetingRule(ctx context.Context, req *DeleteTargetingRuleRequest) (*struct{}, error) {
+	// SECURITY: Verify user has access to this tenant
+	if err := middleware.RequireTenantAccess(ctx, req.TenantID); err != nil {
+		return nil, err
+	}
+
 	ruleID, err := uuid.Parse(req.RuleID)
 	if err != nil {
 		return nil, huma.Error400BadRequest("Invalid rule ID", err)
@@ -229,6 +255,11 @@ type ReorderTargetingRulesRequest struct {
 
 // ReorderTargetingRules reorders targeting rules
 func (h *TargetingRuleHandler) ReorderTargetingRules(ctx context.Context, req *ReorderTargetingRulesRequest) (*dto.TargetingRulesListResponse, error) {
+	// SECURITY: Verify user has access to this tenant
+	if err := middleware.RequireTenantAccess(ctx, req.TenantID); err != nil {
+		return nil, err
+	}
+
 	flagID, err := uuid.Parse(req.FlagID)
 	if err != nil {
 		return nil, huma.Error400BadRequest("Invalid flag ID", err)
