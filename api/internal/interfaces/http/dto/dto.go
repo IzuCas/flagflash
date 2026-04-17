@@ -724,6 +724,10 @@ type WebhookDeliveriesResponse struct {
 	}
 }
 
+type WebhookDeliveryResponse struct {
+	Body WebhookDeliveryDTO
+}
+
 // ===== Emergency Control DTOs =====
 type CreateEmergencyControlRequest struct {
 	TenantID string `path:"tenant_id" format:"uuid"`

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { 
   Webhook as WebhookIcon, 
@@ -7,17 +7,22 @@ import {
   Trash2, 
   Edit2,
   ChevronLeft,
+  ChevronUp,
   Loader2,
   AlertCircle,
   CheckCircle,
   XCircle,
   ExternalLink,
+  RefreshCw,
+  Send,
+  Clock,
+  Activity,
 } from 'lucide-react';
 import { webhooksApi } from '../../services/flagflash-api';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePermissions } from '../../hooks/usePermissions';
 import { ConfirmDeleteModal, Modal } from '../../components';
-import type { Webhook, CreateWebhookRequest } from '../../types/flagflash';
+import type { Webhook, CreateWebhookRequest, WebhookDelivery } from '../../types/flagflash';
 
 const WEBHOOK_EVENTS = [
   { value: 'flag.created', label: 'Flag Created' },
@@ -42,6 +47,11 @@ export default function WebhooksPage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [webhookToDelete, setWebhookToDelete] = useState<Webhook | null>(null);
   const [editingWebhook, setEditingWebhook] = useState<Webhook | null>(null);
+  const [expandedDeliveries, setExpandedDeliveries] = useState<Record<string, boolean>>({});
+  const [deliveries, setDeliveries] = useState<Record<string, WebhookDelivery[]>>({});
+  const [loadingDeliveries, setLoadingDeliveries] = useState<Record<string, boolean>>({});
+  const [testingWebhook, setTestingWebhook] = useState<Record<string, boolean>>({});
+  const [retryingDelivery, setRetryingDelivery] = useState<Record<string, boolean>>({});
 
   const fetchData = useCallback(async () => {
     if (!activeTenantId) {
@@ -86,6 +96,57 @@ export default function WebhooksPage() {
       enabled: !webhook.enabled,
     });
     setWebhooks(prev => prev.map(w => w.id === webhook.id ? updated : w));
+  };
+
+  const toggleDeliveries = async (webhookId: string) => {
+    const isExpanded = expandedDeliveries[webhookId];
+    setExpandedDeliveries(prev => ({ ...prev, [webhookId]: !isExpanded }));
+
+    if (!isExpanded && !deliveries[webhookId]) {
+      await loadDeliveries(webhookId);
+    }
+  };
+
+  const loadDeliveries = async (webhookId: string) => {
+    if (!activeTenantId) return;
+    setLoadingDeliveries(prev => ({ ...prev, [webhookId]: true }));
+    try {
+      const res = await webhooksApi.listDeliveries(activeTenantId, webhookId);
+      setDeliveries(prev => ({ ...prev, [webhookId]: res.deliveries || [] }));
+    } catch {
+      // ignore
+    } finally {
+      setLoadingDeliveries(prev => ({ ...prev, [webhookId]: false }));
+    }
+  };
+
+  const handleTest = async (webhookId: string) => {
+    if (!activeTenantId) return;
+    setTestingWebhook(prev => ({ ...prev, [webhookId]: true }));
+    try {
+      await webhooksApi.test(activeTenantId, webhookId);
+      // Refresh deliveries list
+      await loadDeliveries(webhookId);
+      setExpandedDeliveries(prev => ({ ...prev, [webhookId]: true }));
+    } catch {
+      // ignore
+    } finally {
+      setTestingWebhook(prev => ({ ...prev, [webhookId]: false }));
+    }
+  };
+
+  const handleRetry = async (webhookId: string, deliveryId: string) => {
+    if (!activeTenantId) return;
+    setRetryingDelivery(prev => ({ ...prev, [deliveryId]: true }));
+    try {
+      await webhooksApi.retryDelivery(activeTenantId, webhookId, deliveryId);
+      // Refresh deliveries list after a short delay to allow async processing
+      setTimeout(() => loadDeliveries(webhookId), 1500);
+    } catch {
+      // ignore
+    } finally {
+      setRetryingDelivery(prev => ({ ...prev, [deliveryId]: false }));
+    }
   };
 
   return (
@@ -160,70 +221,130 @@ export default function WebhooksPage() {
               filteredWebhooks.map(webhook => (
                 <div
                   key={webhook.id}
-                  className={`bg-bg-secondary border rounded-xl p-5 transition-colors ${
+                  className={`bg-bg-secondary border rounded-xl overflow-hidden transition-colors ${
                     webhook.enabled ? 'border-border hover:border-accent-purple/50' : 'border-red-500/30 opacity-75'
                   }`}
                 >
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
-                        <h3 className="font-semibold text-text-primary">{webhook.name}</h3>
-                        <span className={`px-2 py-0.5 rounded text-xs font-medium ${
-                          webhook.enabled 
-                            ? 'bg-green-500/20 text-green-400'
-                            : 'bg-red-500/20 text-red-400'
-                        }`}>
-                          {webhook.enabled ? 'Enabled' : 'Disabled'}
-                        </span>
-                      </div>
-                      
-                      <div className="flex items-center gap-2 text-sm text-text-secondary mb-3">
-                        <ExternalLink size={14} />
-                        <span className="font-mono truncate max-w-md">{webhook.url}</span>
-                      </div>
-
-                      <div className="flex flex-wrap gap-2">
-                        {webhook.events.map(event => (
-                          <span
-                            key={event}
-                            className="px-2 py-1 bg-bg-tertiary rounded text-xs text-text-secondary"
-                          >
-                            {event}
+                  <div className="p-5">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3 mb-2">
+                          <h3 className="font-semibold text-text-primary">{webhook.name}</h3>
+                          <span className={`px-2 py-0.5 rounded text-xs font-medium ${
+                            webhook.enabled 
+                              ? 'bg-green-500/20 text-green-400'
+                              : 'bg-red-500/20 text-red-400'
+                          }`}>
+                            {webhook.enabled ? 'Enabled' : 'Disabled'}
                           </span>
-                        ))}
-                      </div>
-                    </div>
+                        </div>
+                        
+                        <div className="flex items-center gap-2 text-sm text-text-secondary mb-3">
+                          <ExternalLink size={14} />
+                          <span className="font-mono truncate max-w-md">{webhook.url}</span>
+                        </div>
 
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => handleToggleEnabled(webhook)}
-                        className={`p-2 rounded-lg transition-colors ${
-                          webhook.enabled
-                            ? 'hover:bg-red-500/10 text-green-400 hover:text-red-400'
-                            : 'hover:bg-green-500/10 text-red-400 hover:text-green-400'
-                        }`}
-                        title={webhook.enabled ? 'Disable' : 'Enable'}
-                      >
-                        {webhook.enabled ? <CheckCircle size={18} /> : <XCircle size={18} />}
-                      </button>
-                      <button
-                        onClick={() => setEditingWebhook(webhook)}
-                        className="p-2 hover:bg-bg-tertiary rounded-lg transition-colors text-text-secondary hover:text-accent-purple"
-                        title="Edit"
-                      >
-                        <Edit2 size={18} />
-                      </button>
-                      {isAdmin && (
+                        <div className="flex flex-wrap gap-2">
+                          {webhook.events.map(event => (
+                            <span
+                              key={event}
+                              className="px-2 py-1 bg-bg-tertiary rounded text-xs text-text-secondary"
+                            >
+                              {event}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2">
                         <button
-                          onClick={() => setWebhookToDelete(webhook)}
-                          className="p-2 hover:bg-red-500/10 rounded-lg transition-colors text-text-secondary hover:text-red-400"
-                          title="Delete"
+                          onClick={() => handleTest(webhook.id)}
+                          disabled={testingWebhook[webhook.id] || !webhook.enabled}
+                          className="p-2 hover:bg-accent-purple/10 rounded-lg transition-colors text-text-secondary hover:text-accent-purple disabled:opacity-40 disabled:cursor-not-allowed"
+                          title="Send test event"
                         >
-                          <Trash2 size={18} />
+                          {testingWebhook[webhook.id] ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
                         </button>
-                      )}
+                        <button
+                          onClick={() => toggleDeliveries(webhook.id)}
+                          className="p-2 hover:bg-bg-tertiary rounded-lg transition-colors text-text-secondary hover:text-text-primary"
+                          title="View dispatched events"
+                        >
+                          {expandedDeliveries[webhook.id] ? <ChevronUp size={18} /> : <Activity size={18} />}
+                        </button>
+                        <button
+                          onClick={() => handleToggleEnabled(webhook)}
+                          className={`p-2 rounded-lg transition-colors ${
+                            webhook.enabled
+                              ? 'hover:bg-red-500/10 text-green-400 hover:text-red-400'
+                              : 'hover:bg-green-500/10 text-red-400 hover:text-green-400'
+                          }`}
+                          title={webhook.enabled ? 'Disable' : 'Enable'}
+                        >
+                          {webhook.enabled ? <CheckCircle size={18} /> : <XCircle size={18} />}
+                        </button>
+                        <button
+                          onClick={() => setEditingWebhook(webhook)}
+                          className="p-2 hover:bg-bg-tertiary rounded-lg transition-colors text-text-secondary hover:text-accent-purple"
+                          title="Edit"
+                        >
+                          <Edit2 size={18} />
+                        </button>
+                        {isAdmin && (
+                          <button
+                            onClick={() => setWebhookToDelete(webhook)}
+                            className="p-2 hover:bg-red-500/10 rounded-lg transition-colors text-text-secondary hover:text-red-400"
+                            title="Delete"
+                          >
+                            <Trash2 size={18} />
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
+
+                  {/* Deliveries Panel */}
+                  {expandedDeliveries[webhook.id] && (
+                    <div className="border-t border-border bg-bg-primary/50">
+                      <div className="px-5 py-3 flex items-center justify-between">
+                        <h4 className="text-sm font-medium text-text-primary flex items-center gap-2">
+                          <Activity size={14} className="text-accent-purple" />
+                          Dispatched Events
+                        </h4>
+                        <button
+                          onClick={() => loadDeliveries(webhook.id)}
+                          className="p-1.5 hover:bg-bg-secondary rounded transition-colors text-text-secondary hover:text-text-primary"
+                          title="Refresh"
+                        >
+                          <RefreshCw size={14} />
+                        </button>
+                      </div>
+
+                      {loadingDeliveries[webhook.id] ? (
+                        <div className="flex items-center justify-center py-6">
+                          <Loader2 className="animate-spin text-accent-purple" size={20} />
+                        </div>
+                      ) : (deliveries[webhook.id] || []).length === 0 ? (
+                        <div className="px-5 pb-5 text-center text-text-secondary text-sm">
+                          <Clock size={24} className="mx-auto mb-2 opacity-40" />
+                          No events dispatched yet
+                        </div>
+                      ) : (
+                        <div className="divide-y divide-border/50">
+                          {(deliveries[webhook.id] || []).map(delivery => (
+                            <DeliveryRow
+                              key={delivery.id}
+                              delivery={delivery}
+                              webhookId={webhook.id}
+                              tenantId={activeTenantId}
+                              retrying={retryingDelivery[delivery.id]}
+                              onRetry={handleRetry}
+                            />
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               ))
             )}
@@ -264,6 +385,76 @@ export default function WebhooksPage() {
           message={`Are you sure you want to delete "${webhookToDelete?.name}"? This action cannot be undone.`}
         />
       </div>
+    </div>
+  );
+}
+
+// ---- DeliveryRow Component ----
+interface DeliveryRowProps {
+  delivery: WebhookDelivery;
+  webhookId: string;
+  tenantId: string;
+  retrying?: boolean;
+  onRetry: (webhookId: string, deliveryId: string) => void;
+}
+
+function DeliveryRow({ delivery, webhookId, tenantId: _tenantId, retrying, onRetry }: DeliveryRowProps) {
+  const statusConfig: Record<string, { color: string; icon: React.ReactNode; label: string }> = {
+    success: { color: 'text-green-400', icon: <CheckCircle size={14} />, label: 'Success' },
+    failed: { color: 'text-red-400', icon: <XCircle size={14} />, label: 'Failed' },
+    retrying: { color: 'text-yellow-400', icon: <RefreshCw size={14} />, label: 'Retrying' },
+    pending: { color: 'text-blue-400', icon: <Clock size={14} />, label: 'Pending' },
+  };
+
+  const st = statusConfig[delivery.status] ?? statusConfig.pending;
+  const canRetry = delivery.status === 'failed' || delivery.status === 'retrying';
+
+  return (
+    <div className="px-5 py-3 flex items-center gap-4 hover:bg-bg-secondary/30 transition-colors">
+      <div className={`flex items-center gap-1.5 ${st.color} text-xs font-medium min-w-[80px]`}>
+        {st.icon}
+        {st.label}
+      </div>
+
+      <span className="text-xs font-mono text-text-secondary bg-bg-tertiary px-2 py-0.5 rounded">
+        {delivery.event_type}
+      </span>
+
+      {delivery.response_status && (
+        <span className={`text-xs font-mono ${delivery.response_status >= 200 && delivery.response_status < 300 ? 'text-green-400' : 'text-red-400'}`}>
+          HTTP {delivery.response_status}
+        </span>
+      )}
+
+      {delivery.duration_ms > 0 && (
+        <span className="text-xs text-text-secondary">{delivery.duration_ms}ms</span>
+      )}
+
+      {delivery.attempt > 1 && (
+        <span className="text-xs text-text-secondary">Attempt #{delivery.attempt}</span>
+      )}
+
+      {delivery.error_message && (
+        <span className="text-xs text-red-400 truncate max-w-xs" title={delivery.error_message}>
+          {delivery.error_message}
+        </span>
+      )}
+
+      <span className="text-xs text-text-secondary ml-auto">
+        {new Date(delivery.created_at).toLocaleString()}
+      </span>
+
+      {canRetry && (
+        <button
+          onClick={() => onRetry(webhookId, delivery.id)}
+          disabled={retrying}
+          className="flex items-center gap-1 px-2 py-1 rounded text-xs bg-accent-purple/10 text-accent-purple hover:bg-accent-purple/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          title="Retry this delivery"
+        >
+          {retrying ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
+          Retry
+        </button>
+      )}
     </div>
   );
 }

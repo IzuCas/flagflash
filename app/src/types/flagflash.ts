@@ -516,6 +516,31 @@ export interface UpdateWebhookRequest {
   enabled?: boolean;
 }
 
+export type WebhookDeliveryStatus = 'pending' | 'success' | 'failed' | 'retrying';
+
+export interface WebhookDelivery {
+  id: string;
+  webhook_id: string;
+  event_type: string;
+  response_status?: number;
+  duration_ms: number;
+  attempt: number;
+  status: WebhookDeliveryStatus;
+  error_message?: string;
+  delivered_at?: string;
+  created_at: string;
+}
+
+export interface WebhookDeliveriesResponse {
+  deliveries: WebhookDelivery[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    total_pages: number;
+  };
+}
+
 // ==== Emergency Controls ====
 
 export type EmergencyControlType = 'kill_switch' | 'maintenance';

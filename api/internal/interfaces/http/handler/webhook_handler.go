@@ -71,6 +71,30 @@ func (h *WebhookHandler) RegisterRoutes(api huma.API) {
 		Summary:     "Enable or disable webhook",
 		Tags:        []string{"Webhooks"},
 	}, h.ToggleWebhook)
+
+	huma.Register(api, huma.Operation{
+		OperationID: "listWebhookDeliveries",
+		Method:      http.MethodGet,
+		Path:        "/tenants/{tenant_id}/webhooks/{webhook_id}/deliveries",
+		Summary:     "List delivery history for a webhook",
+		Tags:        []string{"Webhooks"},
+	}, h.ListDeliveries)
+
+	huma.Register(api, huma.Operation{
+		OperationID: "retryWebhookDelivery",
+		Method:      http.MethodPost,
+		Path:        "/tenants/{tenant_id}/webhooks/{webhook_id}/deliveries/{delivery_id}/retry",
+		Summary:     "Manually retry a failed delivery",
+		Tags:        []string{"Webhooks"},
+	}, h.RetryDelivery)
+
+	huma.Register(api, huma.Operation{
+		OperationID: "testWebhook",
+		Method:      http.MethodPost,
+		Path:        "/tenants/{tenant_id}/webhooks/{webhook_id}/test",
+		Summary:     "Send a test event to the webhook",
+		Tags:        []string{"Webhooks"},
+	}, h.TestWebhook)
 }
 
 type GetWebhookRequest struct {
@@ -253,6 +277,118 @@ func (h *WebhookHandler) ToggleWebhook(ctx context.Context, req *ToggleWebhookRe
 	}
 
 	return &dto.WebhookResponse{Body: toWebhookDTO(webhook)}, nil
+}
+
+type ListDeliveriesRequest struct {
+	TenantID  string `path:"tenant_id" format:"uuid"`
+	WebhookID string `path:"webhook_id" format:"uuid"`
+	Page      int    `query:"page" default:"1" minimum:"1"`
+	Limit     int    `query:"limit" default:"20" minimum:"1" maximum:"100"`
+}
+
+type RetryDeliveryRequest struct {
+	TenantID   string `path:"tenant_id" format:"uuid"`
+	WebhookID  string `path:"webhook_id" format:"uuid"`
+	DeliveryID string `path:"delivery_id" format:"uuid"`
+}
+
+type TestWebhookRequest struct {
+	TenantID  string `path:"tenant_id" format:"uuid"`
+	WebhookID string `path:"webhook_id" format:"uuid"`
+}
+
+func (h *WebhookHandler) ListDeliveries(ctx context.Context, req *ListDeliveriesRequest) (*dto.WebhookDeliveriesResponse, error) {
+	if err := middleware.RequireTenantAccess(ctx, req.TenantID); err != nil {
+		return nil, err
+	}
+
+	webhookID, err := uuid.Parse(req.WebhookID)
+	if err != nil {
+		return nil, huma.Error400BadRequest("Invalid webhook ID", err)
+	}
+
+	offset := (req.Page - 1) * req.Limit
+	deliveries, total, err := h.service.GetDeliveries(ctx, webhookID, req.Limit, offset)
+	if err != nil {
+		return nil, huma.Error500InternalServerError("Failed to list deliveries", err)
+	}
+
+	deliveryDTOs := make([]dto.WebhookDeliveryDTO, len(deliveries))
+	for i, d := range deliveries {
+		deliveryDTOs[i] = toWebhookDeliveryDTO(d)
+	}
+
+	totalPages := (total + req.Limit - 1) / req.Limit
+
+	return &dto.WebhookDeliveriesResponse{
+		Body: struct {
+			Deliveries []dto.WebhookDeliveryDTO `json:"deliveries"`
+			Pagination dto.PaginationResponse   `json:"pagination"`
+		}{
+			Deliveries: deliveryDTOs,
+			Pagination: dto.PaginationResponse{
+				Page:       req.Page,
+				Limit:      req.Limit,
+				Total:      int64(total),
+				TotalPages: totalPages,
+			},
+		},
+	}, nil
+}
+
+func (h *WebhookHandler) RetryDelivery(ctx context.Context, req *RetryDeliveryRequest) (*struct{}, error) {
+	if err := middleware.RequireTenantAccess(ctx, req.TenantID); err != nil {
+		return nil, err
+	}
+
+	deliveryID, err := uuid.Parse(req.DeliveryID)
+	if err != nil {
+		return nil, huma.Error400BadRequest("Invalid delivery ID", err)
+	}
+
+	if err := h.service.RetryDelivery(ctx, deliveryID); err != nil {
+		return nil, huma.Error500InternalServerError("Failed to retry delivery", err)
+	}
+
+	return &struct{}{}, nil
+}
+
+func (h *WebhookHandler) TestWebhook(ctx context.Context, req *TestWebhookRequest) (*dto.WebhookDeliveryResponse, error) {
+	if err := middleware.RequireTenantAccess(ctx, req.TenantID); err != nil {
+		return nil, err
+	}
+
+	webhookID, err := uuid.Parse(req.WebhookID)
+	if err != nil {
+		return nil, huma.Error400BadRequest("Invalid webhook ID", err)
+	}
+
+	webhook, err := h.service.GetByID(ctx, webhookID)
+	if err != nil {
+		return nil, huma.Error404NotFound("Webhook not found")
+	}
+
+	delivery, err := h.service.TestWebhook(ctx, webhook)
+	if err != nil {
+		return nil, huma.Error500InternalServerError("Failed to send test event", err)
+	}
+
+	return &dto.WebhookDeliveryResponse{Body: toWebhookDeliveryDTO(delivery)}, nil
+}
+
+func toWebhookDeliveryDTO(d *entity.WebhookDelivery) dto.WebhookDeliveryDTO {
+	return dto.WebhookDeliveryDTO{
+		ID:             d.ID,
+		WebhookID:      d.WebhookID,
+		EventType:      string(d.EventType),
+		ResponseStatus: d.ResponseStatus,
+		DurationMs:     d.DurationMs,
+		Attempt:        d.Attempt,
+		Status:         string(d.Status),
+		ErrorMessage:   d.ErrorMessage,
+		DeliveredAt:    d.DeliveredAt,
+		CreatedAt:      d.CreatedAt,
+	}
 }
 
 func toWebhookDTO(w *entity.Webhook) dto.WebhookDTO {

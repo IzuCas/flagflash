@@ -48,6 +48,8 @@ import type {
   Webhook,
   CreateWebhookRequest,
   UpdateWebhookRequest,
+  WebhookDelivery,
+  WebhookDeliveriesResponse,
   EmergencyControl,
   ActivateEmergencyControlRequest,
   NotificationsListResponse,
@@ -503,6 +505,18 @@ export const webhooksApi = {
 
   delete: async (tenantId: string, webhookId: string): Promise<void> => {
     return del<void>(`/manage/tenants/${tenantId}/webhooks/${webhookId}`);
+  },
+
+  listDeliveries: async (tenantId: string, webhookId: string, page = 1, limit = 20): Promise<WebhookDeliveriesResponse> => {
+    return get<WebhookDeliveriesResponse>(`/manage/tenants/${tenantId}/webhooks/${webhookId}/deliveries`, { page, limit });
+  },
+
+  retryDelivery: async (tenantId: string, webhookId: string, deliveryId: string): Promise<void> => {
+    return post<void>(`/manage/tenants/${tenantId}/webhooks/${webhookId}/deliveries/${deliveryId}/retry`);
+  },
+
+  test: async (tenantId: string, webhookId: string): Promise<WebhookDelivery> => {
+    return post<WebhookDelivery>(`/manage/tenants/${tenantId}/webhooks/${webhookId}/test`);
   },
 };
 
