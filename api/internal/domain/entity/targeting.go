@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
+	"log"
 	"regexp"
 	"strings"
 	"time"
@@ -16,22 +17,24 @@ import (
 type Operator string
 
 const (
-	OperatorEquals       Operator = "equals"
-	OperatorNotEquals    Operator = "not_equals"
+	// Short aliases used by frontend
+	OperatorEquals       Operator = "eq"
+	OperatorNotEquals    Operator = "neq"
 	OperatorContains     Operator = "contains"
 	OperatorNotContains  Operator = "not_contains"
 	OperatorStartsWith   Operator = "starts_with"
 	OperatorEndsWith     Operator = "ends_with"
 	OperatorIn           Operator = "in"
 	OperatorNotIn        Operator = "not_in"
-	OperatorGreaterThan  Operator = "greater_than"
-	OperatorLessThan     Operator = "less_than"
-	OperatorGreaterEqual Operator = "greater_equal"
-	OperatorLessEqual    Operator = "less_equal"
-	OperatorRegex        Operator = "regex"
+	OperatorGreaterThan  Operator = "gt"
+	OperatorLessThan     Operator = "lt"
+	OperatorGreaterEqual Operator = "gte"
+	OperatorLessEqual    Operator = "lte"
+	OperatorRegex        Operator = "matches"
 	OperatorSemverGT     Operator = "semver_gt"
 	OperatorSemverLT     Operator = "semver_lt"
 	OperatorSemverEQ     Operator = "semver_eq"
+	OperatorExists       Operator = "exists"
 )
 
 // Condition represents a targeting condition
@@ -124,8 +127,12 @@ func (r *TargetingRule) Evaluate(ctx *EvaluationContext) bool {
 	}
 
 	// Check percentage-based rollout
-	if r.Percentage < 100 {
-		return r.isInRolloutBucket(ctx)
+	// percentage=0 or percentage=100 means "apply to all users"
+	// percentage between 1-99 requires user_id or email for bucket calculation
+	if r.Percentage > 0 && r.Percentage < 100 {
+		inBucket := r.isInRolloutBucket(ctx)
+		log.Printf("[EVAL] Rule %q: percentage=%d, inBucket=%v (UserID=%q, Email=%q)", r.Name, r.Percentage, inBucket, ctx.UserID, ctx.Email)
+		return inBucket
 	}
 
 	return true
@@ -134,13 +141,20 @@ func (r *TargetingRule) Evaluate(ctx *EvaluationContext) bool {
 // evaluateCondition evaluates a single condition
 func (r *TargetingRule) evaluateCondition(condition Condition, ctx *EvaluationContext) bool {
 	value := r.getAttributeValue(condition.Attribute, ctx)
+	log.Printf("[COND] Attribute %q: got value %v (type: %T)", condition.Attribute, value, value)
+
 	if value == nil {
+		log.Printf("[COND] Attribute %q is nil, condition fails", condition.Attribute)
 		return false
 	}
 
+	log.Printf("[COND] Comparing: %v (%s) %v", value, condition.Operator, condition.Value)
+
 	switch condition.Operator {
 	case OperatorEquals:
-		return fmt.Sprintf("%v", value) == fmt.Sprintf("%v", condition.Value)
+		result := fmt.Sprintf("%v", value) == fmt.Sprintf("%v", condition.Value)
+		log.Printf("[COND] Equals: %q == %q => %v", fmt.Sprintf("%v", value), fmt.Sprintf("%v", condition.Value), result)
+		return result
 	case OperatorNotEquals:
 		return fmt.Sprintf("%v", value) != fmt.Sprintf("%v", condition.Value)
 	case OperatorContains:
@@ -170,26 +184,49 @@ func (r *TargetingRule) evaluateCondition(condition Condition, ctx *EvaluationCo
 func (r *TargetingRule) getAttributeValue(attribute string, ctx *EvaluationContext) interface{} {
 	switch attribute {
 	case "user_id":
-		return ctx.UserID
+		if ctx.UserID != "" {
+			return ctx.UserID
+		}
 	case "email":
-		return ctx.Email
+		if ctx.Email != "" {
+			return ctx.Email
+		}
 	case "country":
-		return ctx.Country
+		if ctx.Country != "" {
+			return ctx.Country
+		}
 	case "region":
-		return ctx.Region
+		if ctx.Region != "" {
+			return ctx.Region
+		}
 	case "city":
-		return ctx.City
+		if ctx.City != "" {
+			return ctx.City
+		}
 	case "version":
-		return ctx.Version
+		if ctx.Version != "" {
+			return ctx.Version
+		}
 	case "platform":
-		return ctx.Platform
+		if ctx.Platform != "" {
+			return ctx.Platform
+		}
 	case "device_type":
-		return ctx.DeviceType
+		if ctx.DeviceType != "" {
+			return ctx.DeviceType
+		}
 	default:
 		if ctx.Custom != nil {
 			if val, ok := ctx.Custom[attribute]; ok {
 				return val
 			}
+		}
+		return nil
+	}
+	// Check Custom map as fallback for known attributes
+	if ctx.Custom != nil {
+		if val, ok := ctx.Custom[attribute]; ok {
+			return val
 		}
 	}
 	return nil

@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 
 	"github.com/IzuCas/flagflash/internal/application/service"
@@ -60,9 +61,7 @@ func (h *EvaluationHandler) EvaluateFlag(ctx context.Context, req *dto.EvaluateF
 		return nil, huma.Error401Unauthorized("Invalid API key")
 	}
 
-	evalCtx := &entity.EvaluationContext{
-		Custom: req.Body.Context,
-	}
+	evalCtx := mapToEvaluationContext(req.Body.Context)
 
 	result, err := h.service.EvaluateFlag(ctx, environmentID, req.Body.FlagKey, evalCtx)
 	if err != nil {
@@ -88,9 +87,7 @@ func (h *EvaluationHandler) EvaluateAllFlags(ctx context.Context, req *dto.Evalu
 		return nil, huma.Error401Unauthorized("Invalid API key")
 	}
 
-	evalCtx := &entity.EvaluationContext{
-		Custom: req.Body.Context,
-	}
+	evalCtx := mapToEvaluationContext(req.Body.Context)
 
 	results, err := h.service.EvaluateAllFlags(ctx, environmentID, evalCtx)
 	if err != nil {
@@ -154,4 +151,45 @@ func (h *EvaluationHandler) GetFlags(ctx context.Context, _ *struct{}) (*GetFlag
 		})
 	}
 	return resp, nil
+}
+
+// mapToEvaluationContext converts a generic map to EvaluationContext,
+// extracting known fields and putting the rest in Custom
+func mapToEvaluationContext(data map[string]interface{}) *entity.EvaluationContext {
+	if data == nil {
+		return &entity.EvaluationContext{}
+	}
+
+	evalCtx := &entity.EvaluationContext{
+		Custom: make(map[string]interface{}),
+	}
+
+	// Known fields to extract
+	knownFields := map[string]func(string){
+		"user_id":     func(v string) { evalCtx.UserID = v },
+		"email":       func(v string) { evalCtx.Email = v },
+		"country":     func(v string) { evalCtx.Country = v },
+		"region":      func(v string) { evalCtx.Region = v },
+		"city":        func(v string) { evalCtx.City = v },
+		"version":     func(v string) { evalCtx.Version = v },
+		"platform":    func(v string) { evalCtx.Platform = v },
+		"device_type": func(v string) { evalCtx.DeviceType = v },
+	}
+
+	for key, value := range data {
+		if setter, ok := knownFields[key]; ok {
+			// Convert to string for known fields
+			if strVal, ok := value.(string); ok {
+				setter(strVal)
+			} else {
+				// Convert non-string to string
+				setter(fmt.Sprintf("%v", value))
+			}
+		} else {
+			// Put unknown fields in Custom map
+			evalCtx.Custom[key] = value
+		}
+	}
+
+	return evalCtx
 }

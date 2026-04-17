@@ -17,7 +17,7 @@ var client *sdk.Client
 func main() {
 	// ── 1. Create the client ────────────────────────────────────────
 	client = sdk.New(
-		"ff_94260720d275b1fc0df988ff74bdcc58f9fa396595b9df60e190b776c113d63f",
+		"ff_82b0ed23a1998a0f39cffc498509d976e0160fdd8254eec11197b0bb4575cd6f",
 		"http://localhost:9001",
 		sdk.WithTimeout(3*time.Second),
 	)
@@ -56,15 +56,14 @@ func main() {
 	// ── 5. Targeting rules (always hits server) ─────────────────────
 	//
 	// Provide an EvaluationContext when you need per-user targeting.
-	targeted, err := client.Evaluate(ctx, "new-checkout", sdk.EvaluationContext{
-		"user_id": "usr-42",
-		"plan":    "pro",
+	targeted, err := client.Evaluate(ctx, "new_checkout", sdk.EvaluationContext{
+		"user_id": "user-123",
 		"country": "BR",
 	})
 	if err != nil {
 		log.Printf("targeted evaluate error: %v", err)
 	} else {
-		fmt.Printf("[new-checkout] enabled=%v (targeting applied)\n", targeted.Enabled)
+		fmt.Printf("[new_checkout] enabled=%v, value=%s (targeting applied)\n", targeted.Enabled, targeted.Value)
 	}
 
 	// ── 6. All flags from cache ─────────────────────────────────────

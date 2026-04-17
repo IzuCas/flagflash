@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 
 	"github.com/IzuCas/flagflash/internal/domain/entity"
 	"github.com/IzuCas/flagflash/internal/domain/repository"
@@ -54,6 +55,8 @@ type EvaluationResult struct {
 
 // EvaluateFlag evaluates a single flag with the given context
 func (s *EvaluationService) EvaluateFlag(ctx context.Context, environmentID uuid.UUID, key string, evalCtx *entity.EvaluationContext) (*EvaluationResult, error) {
+	log.Printf("[EVAL] Evaluating flag %q for env %s, context: %+v", key, environmentID, evalCtx)
+
 	// Get flag from cache or database
 	var flag *entity.FeatureFlag
 	var err error
@@ -65,6 +68,7 @@ func (s *EvaluationService) EvaluateFlag(ctx context.Context, environmentID uuid
 	if flag == nil || err != nil {
 		flag, err = s.flagRepo.GetByKey(ctx, environmentID, key)
 		if err != nil {
+			log.Printf("[EVAL] Flag %q NOT FOUND", key)
 			return &EvaluationResult{
 				Key:   key,
 				Type:  EvaluationTypeNotFound,
@@ -78,8 +82,11 @@ func (s *EvaluationService) EvaluateFlag(ctx context.Context, environmentID uuid
 		}
 	}
 
+	log.Printf("[EVAL] Flag %q found: Enabled=%v, DefaultValue=%s", key, flag.Enabled, string(flag.DefaultValue))
+
 	// If flag is disabled, return default value
 	if !flag.Enabled {
+		log.Printf("[EVAL] Flag %q is DISABLED", key)
 		return &EvaluationResult{
 			Key:     key,
 			Enabled: false,
@@ -92,6 +99,7 @@ func (s *EvaluationService) EvaluateFlag(ctx context.Context, environmentID uuid
 	// Get targeting rules
 	rules, err := s.targetingRepo.ListByFlag(ctx, flag.ID)
 	if err != nil {
+		log.Printf("[EVAL] Error getting targeting rules for flag %q: %v", key, err)
 		return &EvaluationResult{
 			Key:     key,
 			Enabled: true,
@@ -101,9 +109,17 @@ func (s *EvaluationService) EvaluateFlag(ctx context.Context, environmentID uuid
 		}, nil
 	}
 
+	log.Printf("[EVAL] Found %d targeting rules for flag %q", len(rules), key)
+
 	// Evaluate targeting rules in priority order
-	for _, rule := range rules {
+	for i, rule := range rules {
+		log.Printf("[EVAL] Rule %d: %q (enabled=%v, priority=%d, conditions=%d)", i, rule.Name, rule.Enabled, rule.Priority, len(rule.Conditions))
+		for j, cond := range rule.Conditions {
+			log.Printf("[EVAL]   Condition %d: %s %s %v", j, cond.Attribute, cond.Operator, cond.Value)
+		}
+
 		if rule.Evaluate(evalCtx) {
+			log.Printf("[EVAL] Rule %q MATCHED! Returning value: %s", rule.Name, string(rule.Value))
 			return &EvaluationResult{
 				Key:      key,
 				Enabled:  true,
@@ -114,9 +130,11 @@ func (s *EvaluationService) EvaluateFlag(ctx context.Context, environmentID uuid
 				RuleName: rule.Name,
 			}, nil
 		}
+		log.Printf("[EVAL] Rule %q did NOT match", rule.Name)
 	}
 
 	// No rule matched, return default value
+	log.Printf("[EVAL] No rules matched for flag %q, returning default", key)
 	return &EvaluationResult{
 		Key:     key,
 		Enabled: true,
