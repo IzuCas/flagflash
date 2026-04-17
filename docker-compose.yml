@@ -101,7 +101,7 @@ services:
   #   container_name: flagflash-app
   #   restart: unless-stopped
   #   ports:
-  #     - "3000:80"
+  #     - "9080:80"
   #   environment:
   #     - VITE_API_URL=http://localhost:9001
   #     - VITE_WS_URL=ws://localhost:9001
