@@ -108,6 +108,7 @@ func main() {
 	notificationRepo := postgres.NewNotificationRepo(db)
 	rolloutPlanRepo := postgres.NewRolloutPlanRepo(db)
 	rolloutHistoryRepo := postgres.NewRolloutHistoryRepo(db)
+	flagHistoryRepo := postgres.NewFlagHistoryRepo(db)
 
 	// Initialize Redis cache (if available)
 	var flagCache service.FlagCache
@@ -137,7 +138,7 @@ func main() {
 	tenantService := service.NewTenantService(tenantRepo, userMembershipRepo, auditRepo)
 	appService := service.NewApplicationService(appRepo, envRepo, auditRepo, appCache)
 	envService := service.NewEnvironmentService(envRepo, appRepo, auditRepo, flagRepo, envCache)
-	flagService := service.NewFeatureFlagService(flagRepo, targetingRepo, envRepo, auditRepo, flagCache, flagPublisher)
+	flagService := service.NewFeatureFlagService(flagRepo, targetingRepo, envRepo, auditRepo, flagHistoryRepo, flagCache, flagPublisher)
 	apiKeyService := service.NewAPIKeyService(apiKeyRepo, tenantRepo, apiKeyCache)
 	evaluationService := service.NewEvaluationService(flagRepo, targetingRepo, flagCache)
 	authService := service.NewAuthService(userRepo, tenantRepo, userMembershipRepo, auditRepo, cfg.JWT.Secret, cfg.JWT.Expiration)
@@ -163,6 +164,7 @@ func main() {
 	webhookService := service.NewWebhookService(webhookRepo, webhookDeliveryRepo)
 	notificationService := service.NewNotificationService(notificationRepo, userRepo, userMembershipRepo)
 	rolloutService := service.NewRolloutService(rolloutPlanRepo, rolloutHistoryRepo, flagRepo, webhookService)
+	flagHistoryService := service.NewFlagHistoryService(flagHistoryRepo, flagRepo)
 
 	logger.Info("Services initialized")
 
@@ -216,6 +218,7 @@ func main() {
 		WebhookService:       webhookService,
 		NotificationService:  notificationService,
 		RolloutService:       rolloutService,
+		FlagHistoryService:   flagHistoryService,
 		UserRepo:             userRepo,
 		AppURL:               cfg.AppURL,
 		WSHandler:            wsHub.NewSDKHandler(),

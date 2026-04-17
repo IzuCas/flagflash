@@ -27,7 +27,7 @@ func (h *FlagHistoryHandler) RegisterRoutes(api huma.API) {
 	huma.Register(api, huma.Operation{
 		OperationID: "listFlagHistory",
 		Method:      http.MethodGet,
-		Path:        "/tenants/{tenant_id}/flags/{flag_id}/history",
+		Path:        "/tenants/{tenant_id}/apps/{app_id}/envs/{env_id}/flags/{flag_id}/history",
 		Summary:     "Get history for a feature flag",
 		Tags:        []string{"Flag History"},
 	}, h.ListFlagHistory)
@@ -35,7 +35,7 @@ func (h *FlagHistoryHandler) RegisterRoutes(api huma.API) {
 	huma.Register(api, huma.Operation{
 		OperationID: "getFlagHistoryVersion",
 		Method:      http.MethodGet,
-		Path:        "/tenants/{tenant_id}/flags/{flag_id}/history/versions/{version}",
+		Path:        "/tenants/{tenant_id}/apps/{app_id}/envs/{env_id}/flags/{flag_id}/history/version/{version}",
 		Summary:     "Get a specific version of a flag",
 		Tags:        []string{"Flag History"},
 	}, h.GetHistoryVersion)
@@ -43,7 +43,7 @@ func (h *FlagHistoryHandler) RegisterRoutes(api huma.API) {
 	huma.Register(api, huma.Operation{
 		OperationID: "compareFlagVersions",
 		Method:      http.MethodGet,
-		Path:        "/tenants/{tenant_id}/flags/{flag_id}/history/compare",
+		Path:        "/tenants/{tenant_id}/apps/{app_id}/envs/{env_id}/flags/{flag_id}/history/compare",
 		Summary:     "Compare two flag versions",
 		Tags:        []string{"Flag History"},
 	}, h.CompareVersions)
@@ -51,6 +51,8 @@ func (h *FlagHistoryHandler) RegisterRoutes(api huma.API) {
 
 type ListFlagHistoryRequest struct {
 	TenantID string `path:"tenant_id" format:"uuid"`
+	AppID    string `path:"app_id" format:"uuid"`
+	EnvID    string `path:"env_id" format:"uuid"`
 	FlagID   string `path:"flag_id" format:"uuid"`
 	Page     int    `query:"page" default:"1" minimum:"1"`
 	Limit    int    `query:"limit" default:"20" minimum:"1" maximum:"100"`
@@ -58,12 +60,16 @@ type ListFlagHistoryRequest struct {
 
 type GetHistoryVersionRequest struct {
 	TenantID string `path:"tenant_id" format:"uuid"`
+	AppID    string `path:"app_id" format:"uuid"`
+	EnvID    string `path:"env_id" format:"uuid"`
 	FlagID   string `path:"flag_id" format:"uuid"`
 	Version  int    `path:"version" minimum:"1"`
 }
 
 type CompareVersionsRequest struct {
 	TenantID string `path:"tenant_id" format:"uuid"`
+	AppID    string `path:"app_id" format:"uuid"`
+	EnvID    string `path:"env_id" format:"uuid"`
 	FlagID   string `path:"flag_id" format:"uuid"`
 	Version1 int    `query:"version1" minimum:"1"`
 	Version2 int    `query:"version2" minimum:"1"`

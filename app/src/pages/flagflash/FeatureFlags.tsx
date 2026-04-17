@@ -21,10 +21,20 @@ import {
   Settings,
   Check,
   AlertTriangle,
+  GitBranch,
+  History,
+  Play,
+  Pause,
+  RotateCcw,
+  Clock,
+  TrendingUp,
+  CheckCircle,
+  XCircle,
+  User,
 } from 'lucide-react';
-import { featureFlagsApi, environmentsApi, targetingRulesApi } from '../../services/flagflash-api';
+import { featureFlagsApi, environmentsApi, targetingRulesApi, rolloutsApi, flagHistoryApi } from '../../services/flagflash-api';
 import { usePermissions } from '../../hooks/usePermissions';
-import type { FeatureFlag, Environment, FlagType, TargetingRule, Condition, Operator } from '../../types/flagflash';
+import type { FeatureFlag, Environment, FlagType, TargetingRule, Condition, Operator, RolloutPlan, RolloutStatus, FlagHistory } from '../../types/flagflash';
 import { ConfirmDeleteModal, Modal } from '../../components';
 
 // ============================================
@@ -243,7 +253,7 @@ const OPERATORS: { value: Operator; label: string; description: string }[] = [
   { value: 'exists', label: 'exists', description: 'attribute exists' },
 ];
 
-type PanelTab = 'details' | 'rules' | 'settings';
+type PanelTab = 'details' | 'rules' | 'rollout' | 'history' | 'settings';
 
 export default function FeatureFlagsPage() {
   const { tenantId, appId, envId } = useParams<{ tenantId: string; appId: string; envId: string }>();
@@ -608,6 +618,8 @@ function SidePanel({ flag, tenantId, appId, envId, onClose, onFlagUpdated, onDel
   const tabs: { id: PanelTab; label: string; icon: React.ReactNode }[] = [
     { id: 'details', label: 'Value', icon: <Flag size={16} /> },
     { id: 'rules', label: 'Targeting Rules', icon: <Target size={16} /> },
+    { id: 'rollout', label: 'Rollout', icon: <GitBranch size={16} /> },
+    { id: 'history', label: 'History', icon: <History size={16} /> },
     { id: 'settings', label: 'Settings', icon: <Settings size={16} /> },
   ];
 
@@ -665,6 +677,22 @@ function SidePanel({ flag, tenantId, appId, envId, onClose, onFlagUpdated, onDel
         )}
         {activeTab === 'rules' && (
           <RulesTab
+            flag={flag}
+            tenantId={tenantId}
+            appId={appId}
+            envId={envId}
+          />
+        )}
+        {activeTab === 'rollout' && (
+          <RolloutTab
+            flag={flag}
+            tenantId={tenantId}
+            appId={appId}
+            envId={envId}
+          />
+        )}
+        {activeTab === 'history' && (
+          <HistoryTab
             flag={flag}
             tenantId={tenantId}
             appId={appId}
@@ -1160,6 +1188,461 @@ function SettingsTab({ flag, onDelete }: SettingsTabProps) {
           Delete Feature Flag
         </button>
       </div>
+    </div>
+  );
+}
+
+// ============================================
+// ROLLOUT TAB
+// ============================================
+interface RolloutTabProps {
+  flag: FeatureFlag;
+  tenantId: string;
+  appId: string;
+  envId: string;
+}
+
+const STATUS_COLORS: Record<RolloutStatus, string> = {
+  draft: 'bg-text-tertiary',
+  active: 'bg-accent-green',
+  paused: 'bg-accent-amber',
+  completed: 'bg-accent-blue',
+  failed: 'bg-accent-red',
+};
+
+const STATUS_ICONS: Record<RolloutStatus, React.ReactNode> = {
+  draft: <Clock size={14} />,
+  active: <Play size={14} />,
+  paused: <Pause size={14} />,
+  completed: <CheckCircle size={14} />,
+  failed: <XCircle size={14} />,
+};
+
+function RolloutTab({ flag, tenantId, appId, envId }: RolloutTabProps) {
+  const [rollouts, setRollouts] = useState<RolloutPlan[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Form state
+  const [name, setName] = useState('');
+  const [targetPercentage, setTargetPercentage] = useState(100);
+  const [incrementPercentage, setIncrementPercentage] = useState(10);
+  const [intervalMinutes, setIntervalMinutes] = useState(60);
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    loadRollouts();
+  }, [flag.id]);
+
+  const loadRollouts = async () => {
+    try {
+      setLoading(true);
+      const response = await rolloutsApi.list(tenantId, appId, envId, flag.id);
+      setRollouts(response.plans || []);
+      setError(null);
+    } catch (err) {
+      setError('Failed to load rollouts');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAction = async (rollout: RolloutPlan, action: 'start' | 'pause' | 'resume' | 'rollback') => {
+    setActionLoading(rollout.id);
+    try {
+      let updated: RolloutPlan;
+      switch (action) {
+        case 'start':
+          updated = await rolloutsApi.start(tenantId, rollout.id);
+          break;
+        case 'pause':
+          updated = await rolloutsApi.pause(tenantId, rollout.id);
+          break;
+        case 'resume':
+          updated = await rolloutsApi.resume(tenantId, rollout.id);
+          break;
+        case 'rollback':
+          updated = await rolloutsApi.rollback(tenantId, rollout.id, 'Manual rollback');
+          break;
+      }
+      setRollouts(prev => prev.map(r => r.id === rollout.id ? updated : r));
+    } catch (err) {
+      console.error(`Failed to ${action} rollout:`, err);
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleDelete = async (rolloutId: string) => {
+    try {
+      await rolloutsApi.delete(tenantId, rolloutId);
+      setRollouts(prev => prev.filter(r => r.id !== rolloutId));
+    } catch (err) {
+      console.error('Failed to delete rollout:', err);
+    }
+  };
+
+  const handleCreate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitting(true);
+    try {
+      const created = await rolloutsApi.create(tenantId, appId, envId, flag.id, {
+        name,
+        target_percentage: targetPercentage,
+        increment_percentage: incrementPercentage,
+        increment_interval_minutes: intervalMinutes,
+      });
+      setRollouts(prev => [...prev, created]);
+      setShowCreateForm(false);
+      setName('');
+      setTargetPercentage(100);
+      setIncrementPercentage(10);
+      setIntervalMinutes(60);
+    } catch (err) {
+      console.error('Failed to create rollout:', err);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="animate-spin text-accent-purple" size={24} />
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-4 space-y-4">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-sm font-medium text-text-primary">Progressive Rollout</h3>
+          <p className="text-xs text-text-secondary">Gradually release this flag to users</p>
+        </div>
+        {!showCreateForm && (
+          <button
+            onClick={() => setShowCreateForm(true)}
+            className="flex items-center gap-2 px-3 py-1.5 bg-accent-purple hover:bg-accent-purple/80 text-white text-sm rounded-lg transition-colors"
+          >
+            <Plus size={14} />
+            New Rollout
+          </button>
+        )}
+      </div>
+
+      {error && (
+        <div className="p-3 bg-accent-red/10 border border-accent-red/20 rounded-lg text-sm text-accent-red">
+          {error}
+        </div>
+      )}
+
+      {/* Create Form */}
+      {showCreateForm && (
+        <form onSubmit={handleCreate} className="p-4 bg-bg-primary rounded-lg space-y-3">
+          <div>
+            <label className="block text-xs font-medium text-text-secondary mb-1">Name</label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g., Gradual rollout"
+              required
+              className="w-full px-3 py-2 bg-bg-secondary border border-border-primary rounded-lg text-sm text-text-primary focus:outline-none focus:border-accent-purple"
+            />
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-text-secondary mb-1">Target %</label>
+              <input
+                type="number"
+                value={targetPercentage}
+                onChange={(e) => setTargetPercentage(Number(e.target.value))}
+                min={1}
+                max={100}
+                required
+                className="w-full px-3 py-2 bg-bg-secondary border border-border-primary rounded-lg text-sm text-text-primary focus:outline-none focus:border-accent-purple"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-text-secondary mb-1">Increment %</label>
+              <input
+                type="number"
+                value={incrementPercentage}
+                onChange={(e) => setIncrementPercentage(Number(e.target.value))}
+                min={1}
+                max={100}
+                required
+                className="w-full px-3 py-2 bg-bg-secondary border border-border-primary rounded-lg text-sm text-text-primary focus:outline-none focus:border-accent-purple"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-text-secondary mb-1">Interval (min)</label>
+              <input
+                type="number"
+                value={intervalMinutes}
+                onChange={(e) => setIntervalMinutes(Number(e.target.value))}
+                min={1}
+                required
+                className="w-full px-3 py-2 bg-bg-secondary border border-border-primary rounded-lg text-sm text-text-primary focus:outline-none focus:border-accent-purple"
+              />
+            </div>
+          </div>
+          <p className="text-xs text-text-tertiary">
+            Will increase by {incrementPercentage}% every {intervalMinutes} min until {targetPercentage}%
+          </p>
+          <div className="flex justify-end gap-2 pt-2">
+            <button
+              type="button"
+              onClick={() => setShowCreateForm(false)}
+              className="px-3 py-1.5 text-sm text-text-secondary hover:text-text-primary transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={submitting || !name}
+              className="px-3 py-1.5 bg-accent-purple text-white text-sm rounded-lg hover:bg-accent-purple/80 disabled:opacity-50 transition-colors"
+            >
+              {submitting ? 'Creating...' : 'Create'}
+            </button>
+          </div>
+        </form>
+      )}
+
+      {/* Rollouts List */}
+      {rollouts.length === 0 ? (
+        <div className="text-center py-8 text-text-secondary">
+          <TrendingUp size={32} className="mx-auto mb-2 opacity-50" />
+          <p className="text-sm">No rollouts configured</p>
+          <p className="text-xs mt-1">Create a rollout to gradually release this feature</p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {rollouts.map(rollout => (
+            <div
+              key={rollout.id}
+              className="bg-bg-primary rounded-lg p-3 border border-border-primary"
+            >
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <div className={`w-2 h-2 rounded-full ${STATUS_COLORS[rollout.status]}`} />
+                  <span className="font-medium text-sm text-text-primary">{rollout.name}</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  {rollout.status === 'draft' && (
+                    <button
+                      onClick={() => handleAction(rollout, 'start')}
+                      disabled={actionLoading === rollout.id}
+                      className="p-1.5 hover:bg-bg-secondary rounded text-accent-green"
+                      title="Start"
+                    >
+                      {actionLoading === rollout.id ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />}
+                    </button>
+                  )}
+                  {rollout.status === 'active' && (
+                    <button
+                      onClick={() => handleAction(rollout, 'pause')}
+                      disabled={actionLoading === rollout.id}
+                      className="p-1.5 hover:bg-bg-secondary rounded text-accent-amber"
+                      title="Pause"
+                    >
+                      {actionLoading === rollout.id ? <Loader2 size={14} className="animate-spin" /> : <Pause size={14} />}
+                    </button>
+                  )}
+                  {rollout.status === 'paused' && (
+                    <button
+                      onClick={() => handleAction(rollout, 'resume')}
+                      disabled={actionLoading === rollout.id}
+                      className="p-1.5 hover:bg-bg-secondary rounded text-accent-green"
+                      title="Resume"
+                    >
+                      {actionLoading === rollout.id ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />}
+                    </button>
+                  )}
+                  {(rollout.status === 'active' || rollout.status === 'paused') && (
+                    <button
+                      onClick={() => handleAction(rollout, 'rollback')}
+                      disabled={actionLoading === rollout.id}
+                      className="p-1.5 hover:bg-bg-secondary rounded text-accent-red"
+                      title="Rollback"
+                    >
+                      <RotateCcw size={14} />
+                    </button>
+                  )}
+                  <button
+                    onClick={() => handleDelete(rollout.id)}
+                    className="p-1.5 hover:bg-bg-secondary rounded text-text-secondary hover:text-accent-red"
+                    title="Delete"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              </div>
+              <div className="flex items-center gap-4 text-xs text-text-secondary">
+                <span className="flex items-center gap-1">
+                  {STATUS_ICONS[rollout.status]}
+                  {rollout.status}
+                </span>
+                <span>{rollout.current_percentage}% → {rollout.target_percentage}%</span>
+                <span>+{rollout.increment_percentage}% / {rollout.increment_interval_minutes}min</span>
+              </div>
+              {/* Progress bar */}
+              <div className="w-full h-1.5 bg-bg-tertiary rounded-full overflow-hidden mt-2">
+                <div
+                  className="h-full bg-accent-green transition-all"
+                  style={{ width: `${(rollout.current_percentage / rollout.target_percentage) * 100}%` }}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================
+// HISTORY TAB
+// ============================================
+interface HistoryTabProps {
+  flag: FeatureFlag;
+  tenantId: string;
+  appId: string;
+  envId: string;
+}
+
+function HistoryTab({ flag, tenantId, appId, envId }: HistoryTabProps) {
+  const [history, setHistory] = useState<FlagHistory[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    loadHistory();
+  }, [flag.id]);
+
+  const loadHistory = async () => {
+    try {
+      setLoading(true);
+      const response = await flagHistoryApi.list(tenantId, appId, envId, flag.id);
+      setHistory(response.history || []);
+      setError(null);
+    } catch (err) {
+      setError('Failed to load history');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const formatDate = (dateStr: string) => {
+    const date = new Date(dateStr);
+    return date.toLocaleString();
+  };
+
+  const getChangeIcon = (changeType: string) => {
+    switch (changeType) {
+      case 'created':
+        return <Plus size={14} className="text-accent-green" />;
+      case 'enabled':
+        return <ToggleRight size={14} className="text-accent-green" />;
+      case 'disabled':
+        return <ToggleLeft size={14} className="text-accent-red" />;
+      case 'updated':
+        return <Edit2 size={14} className="text-accent-blue" />;
+      case 'deleted':
+        return <Trash2 size={14} className="text-accent-red" />;
+      default:
+        return <History size={14} className="text-text-secondary" />;
+    }
+  };
+
+  const getChangeLabel = (changeType: string) => {
+    switch (changeType) {
+      case 'created':
+        return 'Created';
+      case 'enabled':
+        return 'Enabled';
+      case 'disabled':
+        return 'Disabled';
+      case 'updated':
+        return 'Updated';
+      case 'deleted':
+        return 'Deleted';
+      default:
+        return changeType;
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="animate-spin text-accent-purple" size={24} />
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-4 space-y-4">
+      <div>
+        <h3 className="text-sm font-medium text-text-primary">Change History</h3>
+        <p className="text-xs text-text-secondary">Track all changes made to this flag</p>
+      </div>
+
+      {error && (
+        <div className="p-3 bg-accent-red/10 border border-accent-red/20 rounded-lg text-sm text-accent-red">
+          {error}
+        </div>
+      )}
+
+      {history.length === 0 ? (
+        <div className="text-center py-8 text-text-secondary">
+          <History size={32} className="mx-auto mb-2 opacity-50" />
+          <p className="text-sm">No history available</p>
+        </div>
+      ) : (
+        <div className="relative">
+          {/* Timeline line */}
+          <div className="absolute left-4 top-0 bottom-0 w-px bg-border-primary" />
+          
+          <div className="space-y-4">
+            {history.map((item) => (
+              <div key={item.id} className="relative flex gap-4">
+                {/* Timeline dot */}
+                <div className="relative z-10 flex items-center justify-center w-8 h-8 bg-bg-secondary border border-border-primary rounded-full">
+                  {getChangeIcon(item.change_type)}
+                </div>
+                
+                {/* Content */}
+                <div className="flex-1 bg-bg-primary rounded-lg p-3 border border-border-primary">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="font-medium text-sm text-text-primary">
+                      {getChangeLabel(item.change_type)}
+                    </span>
+                    <span className="text-xs text-text-tertiary">v{item.version}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs text-text-secondary">
+                    {item.changed_by_name && (
+                      <span className="flex items-center gap-1">
+                        <User size={12} />
+                        {item.changed_by_name}
+                      </span>
+                    )}
+                    <span>{formatDate(item.created_at)}</span>
+                  </div>
+                  {item.comment && (
+                    <p className="text-xs text-text-secondary mt-2 italic">"{item.comment}"</p>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

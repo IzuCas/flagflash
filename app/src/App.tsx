@@ -275,19 +275,6 @@ function ProtectedApp() {
             Emergency
           </NavLink>
           <NavLink
-            to={`/tenants/${selectedTenant.id}/rollouts`}
-            className={({ isActive }) =>
-              `flex items-center gap-3 py-2.5 px-3 rounded-lg text-sm font-medium transition-all duration-200 ${
-                isActive
-                  ? 'bg-accent-purple/10 text-accent-purple border-l-2 border-accent-purple'
-                  : 'text-text-secondary hover:bg-bg-tertiary hover:text-text-primary'
-              }`
-            }
-          >
-            <GitBranch size={18} />
-            Rollouts
-          </NavLink>
-          <NavLink
             to="/notifications"
             className={({ isActive }) =>
               `flex items-center gap-3 py-2.5 px-3 rounded-lg text-sm font-medium transition-all duration-200 ${

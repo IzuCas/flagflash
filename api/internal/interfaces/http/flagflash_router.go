@@ -37,6 +37,7 @@ type FlagFlashRouterConfig struct {
 	WebhookService       *service.WebhookService
 	NotificationService  *service.NotificationService
 	RolloutService       *service.RolloutService
+	FlagHistoryService   *service.FlagHistoryService
 	// Repositories
 	UserRepo repository.UserRepository
 	// Config
@@ -202,6 +203,11 @@ func (fr *FlagFlashRouter) SetupRoutes(r chi.Router) {
 			if fr.config.RolloutService != nil {
 				rolloutHandler := handler.NewRolloutHandler(fr.config.RolloutService)
 				rolloutHandler.RegisterRoutes(dashboardAPI)
+			}
+
+			if fr.config.FlagHistoryService != nil {
+				flagHistoryHandler := handler.NewFlagHistoryHandler(fr.config.FlagHistoryService)
+				flagHistoryHandler.RegisterRoutes(dashboardAPI)
 			}
 		})
 

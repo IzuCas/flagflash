@@ -31,6 +31,7 @@ type FeatureFlagService struct {
 	targetingRepo repository.TargetingRuleRepository
 	envRepo       repository.EnvironmentRepository
 	auditRepo     repository.AuditLogRepository
+	historyRepo   repository.FlagHistoryRepository
 	cache         FlagCache
 	publisher     FlagPublisher
 }
@@ -41,6 +42,7 @@ func NewFeatureFlagService(
 	targetingRepo repository.TargetingRuleRepository,
 	envRepo repository.EnvironmentRepository,
 	auditRepo repository.AuditLogRepository,
+	historyRepo repository.FlagHistoryRepository,
 	cache FlagCache,
 	publisher FlagPublisher,
 ) *FeatureFlagService {
@@ -49,6 +51,7 @@ func NewFeatureFlagService(
 		targetingRepo: targetingRepo,
 		envRepo:       envRepo,
 		auditRepo:     auditRepo,
+		historyRepo:   historyRepo,
 		cache:         cache,
 		publisher:     publisher,
 	}
@@ -103,6 +106,9 @@ func (s *FeatureFlagService) Create(ctx context.Context, environmentID uuid.UUID
 		map[string]interface{}{"environment": env.Name},
 	)
 	s.auditRepo.Create(ctx, auditLog)
+
+	// Record in flag history
+	s.recordFlagHistory(ctx, flag, nil, entity.FlagChangeTypeCreated, actorID)
 
 	return flag, nil
 }
@@ -175,6 +181,9 @@ func (s *FeatureFlagService) Update(ctx context.Context, id uuid.UUID, name, des
 	)
 	s.auditRepo.Create(ctx, auditLog)
 
+	// Record in flag history
+	s.recordFlagHistory(ctx, flag, &oldFlag, entity.FlagChangeTypeUpdated, actorID)
+
 	return flag, nil
 }
 
@@ -219,6 +228,13 @@ func (s *FeatureFlagService) Toggle(ctx context.Context, id uuid.UUID, actorID s
 	)
 	s.auditRepo.Create(ctx, auditLog)
 
+	// Record in flag history
+	changeType := entity.FlagChangeTypeEnabled
+	if !flag.Enabled {
+		changeType = entity.FlagChangeTypeDisabled
+	}
+	s.recordFlagHistory(ctx, flag, &oldFlag, changeType, actorID)
+
 	return flag, nil
 }
 
@@ -254,6 +270,9 @@ func (s *FeatureFlagService) Delete(ctx context.Context, id uuid.UUID, actorID s
 		nil,
 	)
 	s.auditRepo.Create(ctx, auditLog)
+
+	// Record in flag history
+	s.recordFlagHistory(ctx, flag, flag, entity.FlagChangeTypeDeleted, actorID)
 
 	return nil
 }
@@ -410,4 +429,21 @@ func (s *FeatureFlagService) ReorderTargetingRules(ctx context.Context, flagID u
 		}
 	}
 	return nil
+}
+
+// recordFlagHistory records a flag change in history
+func (s *FeatureFlagService) recordFlagHistory(ctx context.Context, flag *entity.FeatureFlag, previousFlag *entity.FeatureFlag, changeType entity.FlagChangeType, actorID string) {
+	if s.historyRepo == nil {
+		return
+	}
+
+	var changedBy *uuid.UUID
+	if actorID != "" {
+		if id, err := uuid.Parse(actorID); err == nil {
+			changedBy = &id
+		}
+	}
+
+	history := entity.FlagHistoryFromFlag(flag, changeType, changedBy, previousFlag, "")
+	s.historyRepo.Create(ctx, history)
 }
