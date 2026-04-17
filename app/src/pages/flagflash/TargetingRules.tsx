@@ -338,12 +338,54 @@ function RuleModal({ rule, flagType, tenantId, appId, envId, flagId, onClose, on
   const [name, setName] = useState(rule?.name || '');
   const [priority, setPriority] = useState(rule?.priority ?? 0);
   const [conditions, setConditions] = useState<Condition[]>(rule?.conditions || [{ attribute: '', operator: 'eq', value: '' }]);
-  const [value, setValue] = useState(rule?.value !== undefined ? JSON.stringify(rule.value) : 'true');
+  const [boolValue, setBoolValue] = useState<boolean>(() => {
+    if (rule?.value !== undefined) {
+      return rule.value === true || rule.value === 'true';
+    }
+    return true;
+  });
+  const [stringValue, setStringValue] = useState<string>(() => {
+    if (rule?.value !== undefined && typeof rule.value === 'string') {
+      return rule.value;
+    }
+    return '';
+  });
+  const [numberValue, setNumberValue] = useState<number>(() => {
+    if (rule?.value !== undefined && typeof rule.value === 'number') {
+      return rule.value;
+    }
+    return 0;
+  });
+  const [jsonValue, setJsonValue] = useState<string>(() => {
+    if (rule?.value !== undefined) {
+      return typeof rule.value === 'object' ? JSON.stringify(rule.value, null, 2) : JSON.stringify(rule.value);
+    }
+    return '{}';
+  });
   const [enabled, setEnabled] = useState(rule?.enabled ?? true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const isEditing = !!rule;
+
+  const getValueByType = (): unknown => {
+    switch (flagType) {
+      case 'boolean':
+        return boolValue;
+      case 'string':
+        return stringValue;
+      case 'number':
+        return numberValue;
+      case 'json':
+        try {
+          return JSON.parse(jsonValue);
+        } catch {
+          return jsonValue;
+        }
+      default:
+        return boolValue;
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -351,12 +393,7 @@ function RuleModal({ rule, flagType, tenantId, appId, envId, flagId, onClose, on
     setError(null);
 
     try {
-      let parsedValue: unknown;
-      try {
-        parsedValue = JSON.parse(value);
-      } catch {
-        parsedValue = value;
-      }
+      const parsedValue = getValueByType();
 
       const validConditions = conditions.filter(c => c.attribute.trim() !== '');
 
@@ -471,49 +508,54 @@ function RuleModal({ rule, flagType, tenantId, appId, envId, flagId, onClose, on
           <label className="block text-sm font-medium text-text-secondary mb-2">
             Conditions <span className="text-text-secondary font-normal">(ALL must match)</span>
           </label>
-          <div className="space-y-2">
+          <div className="space-y-3">
             {conditions.map((condition, index) => (
-              <div key={index} className="flex items-center gap-2">
-                <input
-                  type="text"
-                  value={condition.attribute}
-                  onChange={(e) => updateCondition(index, 'attribute', e.target.value)}
-                  placeholder="user.plan"
-                  className="flex-1 px-3 py-2 bg-bg-primary border border-border rounded-lg text-text-primary placeholder:text-text-secondary focus:outline-none focus:border-accent-purple text-sm"
-                />
-                <select
-                  value={condition.operator}
-                  onChange={(e) => updateCondition(index, 'operator', e.target.value)}
-                  className="px-3 py-2 bg-bg-primary border border-border rounded-lg text-text-primary focus:outline-none focus:border-accent-purple text-sm"
-                >
-                  {OPERATORS.map(op => (
-                    <option key={op.value} value={op.value}>{op.label} ({op.description})</option>
-                  ))}
-                </select>
-                <input
-                  type="text"
-                  value={typeof condition.value === 'object' ? JSON.stringify(condition.value) : String(condition.value)}
-                  onChange={(e) => {
-                    let val: unknown = e.target.value;
-                    try {
-                      val = JSON.parse(e.target.value);
-                    } catch {
-                      // Keep as string
-                    }
-                    updateCondition(index, 'value', val);
-                  }}
-                  placeholder="premium"
-                  className="flex-1 px-3 py-2 bg-bg-primary border border-border rounded-lg text-text-primary placeholder:text-text-secondary focus:outline-none focus:border-accent-purple text-sm"
-                />
-                {conditions.length > 1 && (
+              <div key={index} className="p-3 bg-bg-primary border border-border rounded-lg">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs text-text-secondary">Condition {index + 1}</span>
                   <button
                     type="button"
                     onClick={() => removeCondition(index)}
-                    className="p-2 hover:bg-red-500/10 rounded-lg transition-colors"
+                    disabled={conditions.length <= 1}
+                    className="p-1.5 hover:bg-red-500/10 rounded transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                    title={conditions.length <= 1 ? 'At least one condition required' : 'Remove condition'}
                   >
-                    <Trash2 size={16} className="text-red-400" />
+                    <Trash2 size={14} className="text-red-400" />
                   </button>
-                )}
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  <input
+                    type="text"
+                    value={condition.attribute}
+                    onChange={(e) => updateCondition(index, 'attribute', e.target.value)}
+                    placeholder="attribute"
+                    className="px-3 py-2 bg-bg-secondary border border-border rounded-lg text-text-primary placeholder:text-text-secondary focus:outline-none focus:border-accent-purple text-sm"
+                  />
+                  <select
+                    value={condition.operator}
+                    onChange={(e) => updateCondition(index, 'operator', e.target.value)}
+                    className="px-3 py-2 bg-bg-secondary border border-border rounded-lg text-text-primary focus:outline-none focus:border-accent-purple text-sm"
+                  >
+                    {OPERATORS.map(op => (
+                      <option key={op.value} value={op.value}>{op.label}</option>
+                    ))}
+                  </select>
+                  <input
+                    type="text"
+                    value={typeof condition.value === 'object' ? JSON.stringify(condition.value) : String(condition.value)}
+                    onChange={(e) => {
+                      let val: unknown = e.target.value;
+                      try {
+                        val = JSON.parse(e.target.value);
+                      } catch {
+                        // Keep as string
+                      }
+                      updateCondition(index, 'value', val);
+                    }}
+                    placeholder="value"
+                    className="px-3 py-2 bg-bg-secondary border border-border rounded-lg text-text-primary placeholder:text-text-secondary focus:outline-none focus:border-accent-purple text-sm"
+                  />
+                </div>
               </div>
             ))}
           </div>
@@ -529,19 +571,122 @@ function RuleModal({ rule, flagType, tenantId, appId, envId, flagId, onClose, on
         {/* Return Value */}
         <div>
           <label className="block text-sm font-medium text-text-secondary mb-2">
-            Return Value <span className="text-text-secondary font-normal">(when conditions match)</span>
+            Return Value <span className="text-xs text-text-secondary font-normal ml-2">Type: {flagType}</span>
           </label>
-          <input
-            type="text"
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
-            placeholder={flagType === 'boolean' ? 'true or false' : 'Value'}
-            required
-            className="w-full px-4 py-2 bg-bg-primary border border-border rounded-lg text-text-primary font-mono placeholder:text-text-secondary focus:outline-none focus:border-accent-purple"
-          />
-          <p className="mt-1 text-xs text-text-secondary">
-            Enter a valid JSON value (e.g., true, "string", 123, {"{}"} )
-          </p>
+          
+          {flagType === 'boolean' && (
+            <div className="flex items-center gap-4">
+              <button
+                type="button"
+                onClick={() => setBoolValue(true)}
+                className={`flex-1 px-4 py-3 rounded-lg border-2 transition-colors ${
+                  boolValue 
+                    ? 'border-green-500 bg-green-500/10 text-green-400' 
+                    : 'border-border bg-bg-primary text-text-secondary hover:border-border/80'
+                }`}
+              >
+                <span className="font-mono">true</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setBoolValue(false)}
+                className={`flex-1 px-4 py-3 rounded-lg border-2 transition-colors ${
+                  !boolValue 
+                    ? 'border-red-500 bg-red-500/10 text-red-400' 
+                    : 'border-border bg-bg-primary text-text-secondary hover:border-border/80'
+                }`}
+              >
+                <span className="font-mono">false</span>
+              </button>
+            </div>
+          )}
+
+          {flagType === 'string' && (
+            <input
+              type="text"
+              value={stringValue}
+              onChange={(e) => setStringValue(e.target.value)}
+              placeholder="Enter string value"
+              required
+              className="w-full px-4 py-2 bg-bg-primary border border-border rounded-lg text-text-primary placeholder:text-text-secondary focus:outline-none focus:border-accent-purple"
+            />
+          )}
+
+          {flagType === 'number' && (
+            <input
+              type="number"
+              value={numberValue}
+              onChange={(e) => setNumberValue(parseFloat(e.target.value) || 0)}
+              placeholder="Enter number value"
+              required
+              className="w-full px-4 py-2 bg-bg-primary border border-border rounded-lg text-text-primary placeholder:text-text-secondary focus:outline-none focus:border-accent-purple"
+            />
+          )}
+
+          {flagType === 'json' && (
+            <div className="space-y-2">
+              <div className="relative">
+                <textarea
+                  value={jsonValue}
+                  onChange={(e) => setJsonValue(e.target.value)}
+                  placeholder='{"key": "value"}'
+                  required
+                  rows={8}
+                  className="w-full px-4 py-3 bg-bg-primary border border-border rounded-lg text-text-primary font-mono text-sm placeholder:text-text-secondary focus:outline-none focus:border-accent-purple resize-y"
+                  style={{ tabSize: 2 }}
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    try {
+                      const parsed = JSON.parse(jsonValue);
+                      setJsonValue(JSON.stringify(parsed, null, 2));
+                    } catch {
+                      // Invalid JSON, do nothing
+                    }
+                  }}
+                  className="absolute top-2 right-2 px-2 py-1 text-xs bg-bg-secondary border border-border rounded hover:bg-bg-tertiary transition-colors text-text-secondary"
+                >
+                  Format
+                </button>
+              </div>
+              {(() => {
+                try {
+                  JSON.parse(jsonValue);
+                  return <p className="text-xs text-green-400">✓ Valid JSON</p>;
+                } catch {
+                  return <p className="text-xs text-red-400">✗ Invalid JSON</p>;
+                }
+              })()}
+            </div>
+          )}
+
+          {!['boolean', 'string', 'number', 'json'].includes(flagType) && (
+            <div className="flex items-center gap-4">
+              <button
+                type="button"
+                onClick={() => setBoolValue(true)}
+                className={`flex-1 px-4 py-3 rounded-lg border-2 transition-colors ${
+                  boolValue 
+                    ? 'border-green-500 bg-green-500/10 text-green-400' 
+                    : 'border-border bg-bg-primary text-text-secondary hover:border-border/80'
+                }`}
+              >
+                <span className="font-mono">true</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setBoolValue(false)}
+                className={`flex-1 px-4 py-3 rounded-lg border-2 transition-colors ${
+                  !boolValue 
+                    ? 'border-red-500 bg-red-500/10 text-red-400' 
+                    : 'border-border bg-bg-primary text-text-secondary hover:border-border/80'
+                }`}
+              >
+                <span className="font-mono">false</span>
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Enabled Toggle */}
