@@ -79,6 +79,11 @@ func (h *EnvironmentHandler) CreateEnvironment(ctx context.Context, req *dto.Cre
 		return nil, err
 	}
 
+	// SECURITY: Only member or higher can create environments
+	if err := middleware.RequireRole(ctx, "member"); err != nil {
+		return nil, err
+	}
+
 	appID, err := uuid.Parse(req.AppID)
 	if err != nil {
 		return nil, huma.Error400BadRequest("Invalid application ID", err)
@@ -190,6 +195,11 @@ func (h *EnvironmentHandler) UpdateEnvironment(ctx context.Context, req *dto.Upd
 		return nil, err
 	}
 
+	// SECURITY: Only member or higher can update environments
+	if err := middleware.RequireRole(ctx, "member"); err != nil {
+		return nil, err
+	}
+
 	envID, err := uuid.Parse(req.EnvID)
 	if err != nil {
 		return nil, huma.Error400BadRequest("Invalid environment ID", err)
@@ -229,6 +239,11 @@ func (h *EnvironmentHandler) DeleteEnvironment(ctx context.Context, req *DeleteE
 		return nil, err
 	}
 
+	// SECURITY: Only admin or owner can delete environments
+	if err := middleware.RequireAdminOrOwner(ctx); err != nil {
+		return nil, err
+	}
+
 	envID, err := uuid.Parse(req.EnvID)
 	if err != nil {
 		return nil, huma.Error400BadRequest("Invalid environment ID", err)
@@ -258,6 +273,11 @@ type CopyEnvironmentRequest struct {
 func (h *EnvironmentHandler) CopyEnvironment(ctx context.Context, req *CopyEnvironmentRequest) (*dto.EnvironmentResponse, error) {
 	// SECURITY: Verify user has access to this tenant
 	if err := middleware.RequireTenantAccess(ctx, req.TenantID); err != nil {
+		return nil, err
+	}
+
+	// SECURITY: Only member or higher can copy environments
+	if err := middleware.RequireRole(ctx, "member"); err != nil {
 		return nil, err
 	}
 

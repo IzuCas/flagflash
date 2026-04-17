@@ -19,12 +19,14 @@ import {
 } from 'lucide-react';
 import { apiKeysApi, environmentsApi, applicationsApi } from '../../services/flagflash-api';
 import { useAuth } from '../../contexts/AuthContext';
+import { usePermissions } from '../../hooks/usePermissions';
 import { ConfirmDeleteModal, Modal } from '../../components';
 import type { APIKey, APIKeyCreatedResponse, Environment, Application } from '../../types/flagflash';
 
 export default function APIKeysPage() {
   const { tenantId: urlTenantId } = useParams<{ tenantId: string }>();
   const { selectedTenant } = useAuth();
+  const { canCreateAPIKey, canRevokeAPIKey, canDeleteAPIKey } = usePermissions();
   const activeTenantId = urlTenantId || selectedTenant?.id || '';
   const [apiKeys, setApiKeys] = useState<APIKey[]>([]);
   const [environments, setEnvironments] = useState<Environment[]>([]);
@@ -131,14 +133,16 @@ export default function APIKeysPage() {
               Manage API keys for SDK access
             </p>
           </div>
-          <button
-            onClick={() => setShowCreateModal(true)}
-            disabled={!activeTenantId}
-            className="flex items-center gap-2 px-4 py-2 bg-accent-purple text-white rounded-lg hover:bg-accent-purple/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <Plus size={20} />
-            Create API Key
-          </button>
+          {canCreateAPIKey && (
+            <button
+              onClick={() => setShowCreateModal(true)}
+              disabled={!activeTenantId}
+              className="flex items-center gap-2 px-4 py-2 bg-accent-purple text-white rounded-lg hover:bg-accent-purple/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Plus size={20} />
+              Create API Key
+            </button>
+          )}
         </div>
 
         {/* Search */}
@@ -233,7 +237,7 @@ export default function APIKeysPage() {
                   </div>
 
                   <div className="flex items-center gap-2">
-                    {key.active && (
+                    {key.active && canRevokeAPIKey && (
                       <button
                         onClick={() => setKeyToRevoke(key)}
                         className="p-2 hover:bg-yellow-500/10 rounded-lg transition-colors"
@@ -242,13 +246,15 @@ export default function APIKeysPage() {
                         <Ban size={18} className="text-yellow-400" />
                       </button>
                     )}
-                    <button
-                      onClick={() => setKeyToDelete(key)}
-                      className="p-2 hover:bg-red-500/10 rounded-lg transition-colors"
-                      title="Delete"
-                    >
-                      <Trash2 size={18} className="text-red-400" />
-                    </button>
+                    {canDeleteAPIKey && (
+                      <button
+                        onClick={() => setKeyToDelete(key)}
+                        className="p-2 hover:bg-red-500/10 rounded-lg transition-colors"
+                        title="Delete"
+                      >
+                        <Trash2 size={18} className="text-red-400" />
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>

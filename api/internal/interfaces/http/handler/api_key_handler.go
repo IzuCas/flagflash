@@ -72,6 +72,11 @@ func (h *APIKeyHandler) CreateAPIKey(ctx context.Context, req *dto.CreateAPIKeyR
 		return nil, err
 	}
 
+	// SECURITY: Only admin or owner can create API keys
+	if err := middleware.RequireAdminOrOwner(ctx); err != nil {
+		return nil, err
+	}
+
 	tenantID, err := uuid.Parse(req.TenantID)
 	if err != nil {
 		return nil, huma.Error400BadRequest("Invalid tenant ID", err)
@@ -200,6 +205,11 @@ func (h *APIKeyHandler) RevokeAPIKey(ctx context.Context, req *RevokeAPIKeyReque
 		return nil, err
 	}
 
+	// SECURITY: Only admin or owner can revoke API keys
+	if err := middleware.RequireAdminOrOwner(ctx); err != nil {
+		return nil, err
+	}
+
 	keyID, err := uuid.Parse(req.KeyID)
 	if err != nil {
 		return nil, huma.Error400BadRequest("Invalid key ID", err)
@@ -227,6 +237,11 @@ type DeleteAPIKeyRequest struct {
 func (h *APIKeyHandler) DeleteAPIKey(ctx context.Context, req *DeleteAPIKeyRequest) (*struct{}, error) {
 	// SECURITY: Verify user has access to this tenant
 	if err := middleware.RequireTenantAccess(ctx, req.TenantID); err != nil {
+		return nil, err
+	}
+
+	// SECURITY: Only admin or owner can delete API keys
+	if err := middleware.RequireAdminOrOwner(ctx); err != nil {
 		return nil, err
 	}
 

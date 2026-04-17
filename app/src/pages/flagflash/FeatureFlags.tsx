@@ -23,6 +23,7 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 import { featureFlagsApi, environmentsApi, targetingRulesApi } from '../../services/flagflash-api';
+import { usePermissions } from '../../hooks/usePermissions';
 import type { FeatureFlag, Environment, FlagType, TargetingRule, Condition, Operator } from '../../types/flagflash';
 import { ConfirmDeleteModal, Modal } from '../../components';
 
@@ -246,6 +247,7 @@ type PanelTab = 'details' | 'rules' | 'settings';
 
 export default function FeatureFlagsPage() {
   const { tenantId, appId, envId } = useParams<{ tenantId: string; appId: string; envId: string }>();
+  const { canCreateFeatureFlag, canToggleFeatureFlag, canDeleteFeatureFlag } = usePermissions();
   const [flags, setFlags] = useState<FeatureFlag[]>([]);
   const [environment, setEnvironment] = useState<Environment | null>(null);
   const [loading, setLoading] = useState(true);
@@ -370,13 +372,15 @@ export default function FeatureFlagsPage() {
                 </div>
               )}
             </div>
-            <button
-              onClick={() => setShowCreateModal(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-accent-purple text-white rounded-lg hover:bg-accent-purple/90 transition-colors"
-            >
-              <Plus size={20} />
-              Create Flag
-            </button>
+            {canCreateFeatureFlag && (
+              <button
+                onClick={() => setShowCreateModal(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-accent-purple text-white rounded-lg hover:bg-accent-purple/90 transition-colors"
+              >
+                <Plus size={20} />
+                Create Flag
+              </button>
+            )}
           </div>
 
           {/* Filters */}
@@ -490,33 +494,47 @@ export default function FeatureFlagsPage() {
                     </div>
 
                     <div className="flex items-center gap-3">
-                      <button
-                        onClick={(e) => { e.stopPropagation(); handleToggle(flag); }}
-                        className={`flex items-center gap-2 px-3 py-1.5 rounded-lg transition-colors ${
+                      {canToggleFeatureFlag && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleToggle(flag); }}
+                          className={`flex items-center gap-2 px-3 py-1.5 rounded-lg transition-colors ${
+                            flag.enabled 
+                              ? 'bg-green-500/20 text-green-400 hover:bg-green-500/30' 
+                              : 'bg-bg-tertiary text-text-secondary hover:bg-bg-primary'
+                          }`}
+                        >
+                          {flag.enabled ? (
+                            <>
+                              <ToggleRight size={20} />
+                              Enabled
+                            </>
+                          ) : (
+                            <>
+                              <ToggleLeft size={20} />
+                              Disabled
+                            </>
+                          )}
+                        </button>
+                      )}
+                      {!canToggleFeatureFlag && (
+                        <span className={`flex items-center gap-2 px-3 py-1.5 rounded-lg ${
                           flag.enabled 
-                            ? 'bg-green-500/20 text-green-400 hover:bg-green-500/30' 
-                            : 'bg-bg-tertiary text-text-secondary hover:bg-bg-primary'
-                        }`}
-                      >
-                        {flag.enabled ? (
-                          <>
-                            <ToggleRight size={20} />
-                            Enabled
-                          </>
-                        ) : (
-                          <>
-                            <ToggleLeft size={20} />
-                            Disabled
-                          </>
-                        )}
-                      </button>
+                            ? 'bg-green-500/20 text-green-400' 
+                            : 'bg-bg-tertiary text-text-secondary'
+                        }`}>
+                          {flag.enabled ? <ToggleRight size={20} /> : <ToggleLeft size={20} />}
+                          {flag.enabled ? 'Enabled' : 'Disabled'}
+                        </span>
+                      )}
 
-                      <button
-                        onClick={(e) => { e.stopPropagation(); setDeletingFlag(flag); }}
-                        className="p-2 hover:bg-red-500/10 rounded-lg transition-colors"
-                      >
-                        <Trash2 size={18} className="text-red-400" />
-                      </button>
+                      {canDeleteFeatureFlag && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setDeletingFlag(flag); }}
+                          className="p-2 hover:bg-red-500/10 rounded-lg transition-colors"
+                        >
+                          <Trash2 size={18} className="text-red-400" />
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>

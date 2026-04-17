@@ -255,6 +255,11 @@ func (h *UserHandler) CreateUser(ctx context.Context, req *CreateUserRequest) (*
 		return nil, err
 	}
 
+	// SECURITY: Only admin or owner can create users
+	if err := middleware.RequireAdminOrOwner(ctx); err != nil {
+		return nil, err
+	}
+
 	tenantID, err := uuid.Parse(req.TenantID)
 	if err != nil {
 		return nil, huma.Error400BadRequest("Invalid tenant ID", err)
@@ -300,6 +305,11 @@ func (h *UserHandler) CreateUser(ctx context.Context, req *CreateUserRequest) (*
 func (h *UserHandler) UpdateUser(ctx context.Context, req *UpdateUserRequest) (*UserResponse, error) {
 	// SECURITY: Verify user has access to this tenant
 	if err := middleware.RequireTenantAccess(ctx, req.TenantID); err != nil {
+		return nil, err
+	}
+
+	// SECURITY: Only admin or owner can update users
+	if err := middleware.RequireAdminOrOwner(ctx); err != nil {
 		return nil, err
 	}
 
@@ -356,6 +366,11 @@ func (h *UserHandler) DeleteUser(ctx context.Context, req *DeleteUserRequest) (*
 		return nil, err
 	}
 
+	// SECURITY: Only admin or owner can delete users
+	if err := middleware.RequireAdminOrOwner(ctx); err != nil {
+		return nil, err
+	}
+
 	tenantID, err := uuid.Parse(req.TenantID)
 	if err != nil {
 		return nil, huma.Error400BadRequest("Invalid tenant ID", err)
@@ -394,6 +409,16 @@ type InviteResponse struct {
 
 // InviteUser invites an existing user to a tenant
 func (h *UserHandler) InviteUser(ctx context.Context, req *InviteUserRequest) (*InviteResponse, error) {
+	// SECURITY: Verify user has access to this tenant
+	if err := middleware.RequireTenantAccess(ctx, req.TenantID); err != nil {
+		return nil, err
+	}
+
+	// SECURITY: Only admin or owner can invite users
+	if err := middleware.RequireAdminOrOwner(ctx); err != nil {
+		return nil, err
+	}
+
 	tenantID, err := uuid.Parse(req.TenantID)
 	if err != nil {
 		return nil, huma.Error400BadRequest("Invalid tenant ID", err)
@@ -431,6 +456,16 @@ func (h *UserHandler) InviteUser(ctx context.Context, req *InviteUserRequest) (*
 
 // UpdateUserRole updates a user's role in a tenant
 func (h *UserHandler) UpdateUserRole(ctx context.Context, req *UpdateUserRoleRequest) (*UserResponse, error) {
+	// SECURITY: Verify user has access to this tenant
+	if err := middleware.RequireTenantAccess(ctx, req.TenantID); err != nil {
+		return nil, err
+	}
+
+	// SECURITY: Only admin or owner can change user roles
+	if err := middleware.RequireAdminOrOwner(ctx); err != nil {
+		return nil, err
+	}
+
 	tenantID, err := uuid.Parse(req.TenantID)
 	if err != nil {
 		return nil, huma.Error400BadRequest("Invalid tenant ID", err)

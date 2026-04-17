@@ -71,6 +71,11 @@ func (h *ApplicationHandler) CreateApplication(ctx context.Context, req *dto.Cre
 		return nil, err
 	}
 
+	// SECURITY: Only member or higher can create applications (not viewers)
+	if err := middleware.RequireRole(ctx, "member"); err != nil {
+		return nil, err
+	}
+
 	tenantID, err := uuid.Parse(req.TenantID)
 	if err != nil {
 		return nil, huma.Error400BadRequest("Invalid tenant ID", err)
@@ -190,6 +195,11 @@ func (h *ApplicationHandler) UpdateApplication(ctx context.Context, req *dto.Upd
 		return nil, err
 	}
 
+	// SECURITY: Only member or higher can update applications
+	if err := middleware.RequireRole(ctx, "member"); err != nil {
+		return nil, err
+	}
+
 	appID, err := uuid.Parse(req.AppID)
 	if err != nil {
 		return nil, huma.Error400BadRequest("Invalid application ID", err)
@@ -224,6 +234,11 @@ type DeleteApplicationRequest struct {
 func (h *ApplicationHandler) DeleteApplication(ctx context.Context, req *DeleteApplicationRequest) (*struct{}, error) {
 	// SECURITY: Verify user has access to this tenant
 	if err := middleware.RequireTenantAccess(ctx, req.TenantID); err != nil {
+		return nil, err
+	}
+
+	// SECURITY: Only admin or owner can delete applications
+	if err := middleware.RequireAdminOrOwner(ctx); err != nil {
 		return nil, err
 	}
 

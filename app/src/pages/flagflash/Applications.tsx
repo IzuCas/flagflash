@@ -13,11 +13,13 @@ import {
 } from 'lucide-react';
 import { applicationsApi, tenantsApi } from '../../services/flagflash-api';
 import { ConfirmDeleteModal, Modal } from '../../components';
+import { usePermissions } from '../../hooks/usePermissions';
 import type { Application, Tenant } from '../../types/flagflash';
 
 export default function ApplicationsPage() {
   const { tenantId } = useParams<{ tenantId: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
+  const { canCreateApplication, canUpdateApplication, canDeleteApplication } = usePermissions();
   const [applications, setApplications] = useState<Application[]>([]);
   const [tenant, setTenant] = useState<Tenant | null>(null);
   const [loading, setLoading] = useState(true);
@@ -94,13 +96,15 @@ export default function ApplicationsPage() {
               </p>
             )}
           </div>
-          <button
-            onClick={() => setShowCreateModal(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-accent-purple text-white rounded-lg hover:bg-accent-purple/90 transition-colors"
-          >
-            <Plus size={20} />
-            Create Application
-          </button>
+          {canCreateApplication && (
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-accent-purple text-white rounded-lg hover:bg-accent-purple/90 transition-colors"
+            >
+              <Plus size={20} />
+              Create Application
+            </button>
+          )}
         </div>
 
         {/* Search */}
@@ -141,18 +145,22 @@ export default function ApplicationsPage() {
                     <Layers className="text-accent-blue" size={20} />
                   </div>
                   <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button
-                      onClick={() => setEditingApp(app)}
-                      className="p-2 hover:bg-bg-tertiary rounded-lg transition-colors"
-                    >
-                      <Edit2 size={16} className="text-text-secondary" />
-                    </button>
-                    <button
-                      onClick={() => setDeletingApp(app)}
-                      className="p-2 hover:bg-red-500/10 rounded-lg transition-colors"
-                    >
-                      <Trash2 size={16} className="text-red-400" />
-                    </button>
+                    {canUpdateApplication && (
+                      <button
+                        onClick={() => setEditingApp(app)}
+                        className="p-2 hover:bg-bg-tertiary rounded-lg transition-colors"
+                      >
+                        <Edit2 size={16} className="text-text-secondary" />
+                      </button>
+                    )}
+                    {canDeleteApplication && (
+                      <button
+                        onClick={() => setDeletingApp(app)}
+                        className="p-2 hover:bg-red-500/10 rounded-lg transition-colors"
+                      >
+                        <Trash2 size={16} className="text-red-400" />
+                      </button>
+                    )}
                   </div>
                 </div>
                 

@@ -11,10 +11,12 @@ import {
   User,
   Hash,
   Activity,
-  Eye
+  Eye,
+  ShieldX
 } from 'lucide-react';
 import { auditLogsApi } from '../../services/flagflash-api';
 import { useAuth } from '../../contexts/AuthContext';
+import { usePermissions } from '../../hooks/usePermissions';
 import type { AuditLog, EntityType, AuditAction, AuditLogFilters } from '../../types/flagflash';
 
 const ENTITY_TYPE_LABELS: Record<EntityType, string> = {
@@ -51,6 +53,7 @@ const ACTION_COLORS: Record<AuditAction, string> = {
 
 export default function AuditLogPage() {
   const { selectedTenant } = useAuth();
+  const { canViewAuditLogs } = usePermissions();
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -121,15 +124,28 @@ export default function AuditLogPage() {
 
   return (
     <div className="p-6 min-w-0 overflow-hidden">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-text-primary flex items-center gap-3">
-            <FileText className="text-accent-purple" />
-            Audit Log
-          </h1>
-          <p className="text-text-secondary mt-1">Track all changes and actions in your feature flag system</p>
+      {/* Permission Check */}
+      {!canViewAuditLogs ? (
+        <div className="flex flex-col items-center justify-center py-24 text-center">
+          <div className="w-16 h-16 rounded-full bg-red-500/20 flex items-center justify-center mb-4">
+            <ShieldX size={32} className="text-red-400" />
+          </div>
+          <h2 className="text-xl font-semibold text-text-primary mb-2">Access Denied</h2>
+          <p className="text-text-secondary max-w-md">
+            You don't have permission to view audit logs. Only administrators and owners can access this section.
+          </p>
         </div>
+      ) : (
+        <>
+          {/* Header */}
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h1 className="text-2xl font-bold text-text-primary flex items-center gap-3">
+                <FileText className="text-accent-purple" />
+                Audit Log
+              </h1>
+              <p className="text-text-secondary mt-1">Track all changes and actions in your feature flag system</p>
+            </div>
 
         <div className="flex items-center gap-3">
           <button
@@ -351,6 +367,8 @@ export default function AuditLogPage() {
           )}
         </div>
       </div>
+        </>
+      )}
     </div>
   );
 }

@@ -129,6 +129,11 @@ func (h *FeatureFlagHandler) CreateFeatureFlag(ctx context.Context, req *dto.Cre
 		return nil, err
 	}
 
+	// SECURITY: Only member or higher can create feature flags
+	if err := middleware.RequireRole(ctx, "member"); err != nil {
+		return nil, err
+	}
+
 	envID, err := uuid.Parse(req.EnvID)
 	if err != nil {
 		return nil, huma.Error400BadRequest("Invalid environment ID", err)
@@ -207,6 +212,11 @@ func (h *FeatureFlagHandler) UpdateFeatureFlag(ctx context.Context, req *dto.Upd
 		return nil, err
 	}
 
+	// SECURITY: Only member or higher can update feature flags
+	if err := middleware.RequireRole(ctx, "member"); err != nil {
+		return nil, err
+	}
+
 	flagID, err := uuid.Parse(req.FlagID)
 	if err != nil {
 		return nil, huma.Error400BadRequest("Invalid flag ID", err)
@@ -243,6 +253,11 @@ func (h *FeatureFlagHandler) ToggleFeatureFlag(ctx context.Context, req *dto.Tog
 		return nil, err
 	}
 
+	// SECURITY: Only member or higher can toggle feature flags
+	if err := middleware.RequireRole(ctx, "member"); err != nil {
+		return nil, err
+	}
+
 	flagID, err := uuid.Parse(req.FlagID)
 	if err != nil {
 		return nil, huma.Error400BadRequest("Invalid flag ID", err)
@@ -268,6 +283,11 @@ func (h *FeatureFlagHandler) ToggleFeatureFlag(ctx context.Context, req *dto.Tog
 func (h *FeatureFlagHandler) DeleteFeatureFlag(ctx context.Context, req *DeleteFeatureFlagRequest) (*struct{}, error) {
 	// SECURITY: Verify user has access to this tenant
 	if err := middleware.RequireTenantAccess(ctx, req.TenantID); err != nil {
+		return nil, err
+	}
+
+	// SECURITY: Only admin or owner can delete feature flags
+	if err := middleware.RequireAdminOrOwner(ctx); err != nil {
 		return nil, err
 	}
 
@@ -323,6 +343,11 @@ func (h *FeatureFlagHandler) ListFeatureFlags(ctx context.Context, req *ListFeat
 func (h *FeatureFlagHandler) CopyFeatureFlags(ctx context.Context, req *dto.CopyFeatureFlagsRequest) (*dto.CopyFeatureFlagsResponse, error) {
 	// SECURITY: Verify user has access to this tenant
 	if err := middleware.RequireTenantAccess(ctx, req.TenantID); err != nil {
+		return nil, err
+	}
+
+	// SECURITY: Only member or higher can copy feature flags
+	if err := middleware.RequireRole(ctx, "member"); err != nil {
 		return nil, err
 	}
 

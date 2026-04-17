@@ -81,6 +81,11 @@ func (h *TargetingRuleHandler) CreateTargetingRule(ctx context.Context, req *dto
 		return nil, err
 	}
 
+	// SECURITY: Only member or higher can create targeting rules
+	if err := middleware.RequireRole(ctx, "member"); err != nil {
+		return nil, err
+	}
+
 	flagID, err := uuid.Parse(req.FlagID)
 	if err != nil {
 		return nil, huma.Error400BadRequest("Invalid flag ID", err)
@@ -177,6 +182,11 @@ func (h *TargetingRuleHandler) UpdateTargetingRule(ctx context.Context, req *dto
 		return nil, err
 	}
 
+	// SECURITY: Only member or higher can update targeting rules
+	if err := middleware.RequireRole(ctx, "member"); err != nil {
+		return nil, err
+	}
+
 	ruleID, err := uuid.Parse(req.RuleID)
 	if err != nil {
 		return nil, huma.Error400BadRequest("Invalid rule ID", err)
@@ -230,6 +240,11 @@ func (h *TargetingRuleHandler) DeleteTargetingRule(ctx context.Context, req *Del
 		return nil, err
 	}
 
+	// SECURITY: Only admin or owner can delete targeting rules
+	if err := middleware.RequireAdminOrOwner(ctx); err != nil {
+		return nil, err
+	}
+
 	ruleID, err := uuid.Parse(req.RuleID)
 	if err != nil {
 		return nil, huma.Error400BadRequest("Invalid rule ID", err)
@@ -257,6 +272,11 @@ type ReorderTargetingRulesRequest struct {
 func (h *TargetingRuleHandler) ReorderTargetingRules(ctx context.Context, req *ReorderTargetingRulesRequest) (*dto.TargetingRulesListResponse, error) {
 	// SECURITY: Verify user has access to this tenant
 	if err := middleware.RequireTenantAccess(ctx, req.TenantID); err != nil {
+		return nil, err
+	}
+
+	// SECURITY: Only member or higher can reorder targeting rules
+	if err := middleware.RequireRole(ctx, "member"); err != nil {
 		return nil, err
 	}
 

@@ -59,6 +59,11 @@ func (h *AuditLogHandler) ListAuditLogs(ctx context.Context, req *dto.AuditLogsL
 		return nil, err
 	}
 
+	// SECURITY: Only admin or owner can view audit logs
+	if err := middleware.RequireAdminOrOwner(ctx); err != nil {
+		return nil, err
+	}
+
 	tenantID, err := uuid.Parse(req.TenantID)
 	if err != nil {
 		return nil, huma.Error400BadRequest("Invalid tenant ID", err)
@@ -157,6 +162,11 @@ func (h *AuditLogHandler) ListAuditLogs(ctx context.Context, req *dto.AuditLogsL
 func (h *AuditLogHandler) GetAuditLog(ctx context.Context, req *GetAuditLogRequest) (*dto.AuditLogResponse, error) {
 	// SECURITY: Verify user has access to this tenant
 	if err := middleware.RequireTenantAccess(ctx, req.TenantID); err != nil {
+		return nil, err
+	}
+
+	// SECURITY: Only admin or owner can view audit logs
+	if err := middleware.RequireAdminOrOwner(ctx); err != nil {
 		return nil, err
 	}
 

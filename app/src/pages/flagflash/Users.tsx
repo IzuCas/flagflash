@@ -19,6 +19,7 @@ import {
 import { usersApi, tenantsApi } from '../../services/flagflash-api';
 import { ConfirmDeleteModal, Modal } from '../../components';
 import { useAuth } from '../../contexts/AuthContext';
+import { usePermissions, ROLE_BADGES } from '../../hooks/usePermissions';
 import type { UserWithMembership, Tenant, UserRole, InviteResponse } from '../../types/flagflash';
 
 const ROLES: { value: UserRole; label: string; color: string }[] = [
@@ -30,8 +31,8 @@ const ROLES: { value: UserRole; label: string; color: string }[] = [
 
 export default function UsersPage() {
   const { tenantId } = useParams<{ tenantId: string }>();
-  const { selectedTenant, user: authUser } = useAuth();
-  const currentRole = selectedTenant?.role as UserRole | undefined;
+  const { user: authUser } = useAuth();
+  const { canCreateUser, canUpdateUser, canManageRole } = usePermissions();
   const [users, setUsers] = useState<UserWithMembership[]>([]);
   const [tenant, setTenant] = useState<Tenant | null>(null);
   const [loading, setLoading] = useState(true);
@@ -82,17 +83,14 @@ export default function UsersPage() {
   };
 
   const getRoleInfo = (role: string) => {
-    return ROLES.find(r => r.value === role) || ROLES[2];
+    return ROLE_BADGES[role as UserRole] || ROLE_BADGES.member;
   };
 
   // Returns true only when the current user has permission to edit/delete the target
   const canManageUser = (targetId: string, targetRole: UserRole): boolean => {
     if (authUser?.id === targetId) return false; // cannot manage yourself — use Settings instead
-    if (targetRole === 'owner') return false; // owners are immutable for everyone
-    if (!currentRole) return false;
-    if (currentRole === 'owner') return true;
-    if (currentRole === 'admin') return targetRole === 'member' || targetRole === 'viewer';
-    return false;
+    if (!canUpdateUser) return false; // must have update permission
+    return canManageRole(targetRole);
   };
 
   return (
@@ -120,13 +118,15 @@ export default function UsersPage() {
               Manage users for {tenant?.name || 'tenant'}
             </p>
           </div>
-          <button
-            onClick={() => setShowCreateModal(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-accent-purple text-white rounded-lg hover:bg-accent-purple/90 transition-colors"
-          >
-            <Plus size={20} />
-            Add User
-          </button>
+          {canCreateUser && (
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-accent-purple text-white rounded-lg hover:bg-accent-purple/90 transition-colors"
+            >
+              <Plus size={20} />
+              Add User
+            </button>
+          )}
         </div>
 
         {/* Search */}
