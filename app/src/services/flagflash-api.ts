@@ -41,6 +41,22 @@ import type {
   InviteDetails,
   AcceptInviteRequest,
   AcceptInviteResponse,
+  // Advanced features
+  Segment,
+  CreateSegmentRequest,
+  UpdateSegmentRequest,
+  Webhook,
+  CreateWebhookRequest,
+  UpdateWebhookRequest,
+  EmergencyControl,
+  ActivateEmergencyControlRequest,
+  NotificationsListResponse,
+  FlagHistoryListResponse,
+  FlagHistory,
+  FlagComparisonResponse,
+  RolloutPlan,
+  CreateRolloutRequest,
+  RolloutHistoryListResponse,
 } from '../types/flagflash';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || '';
@@ -441,5 +457,152 @@ export const usageMetricsApi = {
       start_date: startDate,
       end_date: endDate,
     });
+  },
+};
+
+// ==== Segments ====
+export const segmentsApi = {
+  list: async (tenantId: string): Promise<{ segments: Segment[] }> => {
+    return get<{ segments: Segment[] }>(`/manage/tenants/${tenantId}/segments`);
+  },
+
+  get: async (tenantId: string, segmentId: string): Promise<Segment> => {
+    return get<Segment>(`/manage/tenants/${tenantId}/segments/${segmentId}`);
+  },
+
+  create: async (tenantId: string, data: CreateSegmentRequest): Promise<Segment> => {
+    return post<Segment>(`/manage/tenants/${tenantId}/segments`, data);
+  },
+
+  update: async (tenantId: string, segmentId: string, data: UpdateSegmentRequest): Promise<Segment> => {
+    return put<Segment>(`/manage/tenants/${tenantId}/segments/${segmentId}`, data);
+  },
+
+  delete: async (tenantId: string, segmentId: string): Promise<void> => {
+    return del<void>(`/manage/tenants/${tenantId}/segments/${segmentId}`);
+  },
+};
+
+// ==== Webhooks ====
+export const webhooksApi = {
+  list: async (tenantId: string): Promise<{ webhooks: Webhook[] }> => {
+    return get<{ webhooks: Webhook[] }>(`/manage/tenants/${tenantId}/webhooks`);
+  },
+
+  get: async (tenantId: string, webhookId: string): Promise<Webhook> => {
+    return get<Webhook>(`/manage/tenants/${tenantId}/webhooks/${webhookId}`);
+  },
+
+  create: async (tenantId: string, data: CreateWebhookRequest): Promise<Webhook> => {
+    return post<Webhook>(`/manage/tenants/${tenantId}/webhooks`, data);
+  },
+
+  update: async (tenantId: string, webhookId: string, data: UpdateWebhookRequest): Promise<Webhook> => {
+    return put<Webhook>(`/manage/tenants/${tenantId}/webhooks/${webhookId}`, data);
+  },
+
+  delete: async (tenantId: string, webhookId: string): Promise<void> => {
+    return del<void>(`/manage/tenants/${tenantId}/webhooks/${webhookId}`);
+  },
+};
+
+// ==== Emergency Controls ====
+export const emergencyControlsApi = {
+  list: async (tenantId: string): Promise<{ controls: EmergencyControl[] }> => {
+    return get<{ controls: EmergencyControl[] }>(`/manage/tenants/${tenantId}/emergency-controls`);
+  },
+
+  listActive: async (tenantId: string): Promise<{ controls: EmergencyControl[] }> => {
+    return get<{ controls: EmergencyControl[] }>(`/manage/tenants/${tenantId}/emergency-controls/active`);
+  },
+
+  activateKillSwitch: async (tenantId: string, data: ActivateEmergencyControlRequest): Promise<EmergencyControl> => {
+    return post<EmergencyControl>(`/manage/tenants/${tenantId}/emergency-controls/kill-switch`, data);
+  },
+
+  activateMaintenance: async (tenantId: string, data: ActivateEmergencyControlRequest): Promise<EmergencyControl> => {
+    return post<EmergencyControl>(`/manage/tenants/${tenantId}/emergency-controls/maintenance`, data);
+  },
+
+  deactivate: async (tenantId: string, controlId: string): Promise<void> => {
+    return post<void>(`/manage/tenants/${tenantId}/emergency-controls/${controlId}/deactivate`);
+  },
+
+  checkKillSwitch: async (tenantId: string, envId?: string): Promise<{ active: boolean; control?: EmergencyControl }> => {
+    const params = envId ? { environment_id: envId } : undefined;
+    return get<{ active: boolean; control?: EmergencyControl }>(`/manage/tenants/${tenantId}/emergency-controls/kill-switch/check`, params);
+  },
+};
+
+// ==== Notifications ====
+export const notificationsApi = {
+  list: async (tenantId: string, page = 1, limit = 20): Promise<NotificationsListResponse> => {
+    return get<NotificationsListResponse>(`/manage/tenants/${tenantId}/notifications`, { page, limit });
+  },
+
+  getUnreadCount: async (tenantId: string): Promise<{ count: number }> => {
+    return get<{ count: number }>(`/manage/tenants/${tenantId}/notifications/unread-count`);
+  },
+
+  markAsRead: async (tenantId: string, notificationId: string): Promise<void> => {
+    return post<void>(`/manage/tenants/${tenantId}/notifications/${notificationId}/read`);
+  },
+
+  markAllAsRead: async (tenantId: string): Promise<void> => {
+    return post<void>(`/manage/tenants/${tenantId}/notifications/mark-all-read`);
+  },
+};
+
+// ==== Flag History ====
+export const flagHistoryApi = {
+  list: async (tenantId: string, appId: string, envId: string, flagId: string, page = 1, limit = 20): Promise<FlagHistoryListResponse> => {
+    return get<FlagHistoryListResponse>(`/manage/tenants/${tenantId}/apps/${appId}/envs/${envId}/flags/${flagId}/history`, { page, limit });
+  },
+
+  getVersion: async (tenantId: string, appId: string, envId: string, flagId: string, version: number): Promise<FlagHistory> => {
+    return get<FlagHistory>(`/manage/tenants/${tenantId}/apps/${appId}/envs/${envId}/flags/${flagId}/history/version/${version}`);
+  },
+
+  compare: async (tenantId: string, appId: string, envId: string, flagId: string, v1: number, v2: number): Promise<FlagComparisonResponse> => {
+    return get<FlagComparisonResponse>(`/manage/tenants/${tenantId}/apps/${appId}/envs/${envId}/flags/${flagId}/history/compare`, { version1: v1, version2: v2 });
+  },
+};
+
+// ==== Rollout Plans ====
+export const rolloutsApi = {
+  list: async (tenantId: string, appId: string, envId: string, flagId: string): Promise<{ plans: RolloutPlan[] }> => {
+    return get<{ plans: RolloutPlan[] }>(`/manage/tenants/${tenantId}/apps/${appId}/envs/${envId}/flags/${flagId}/rollouts`);
+  },
+
+  get: async (tenantId: string, rolloutId: string): Promise<RolloutPlan> => {
+    return get<RolloutPlan>(`/manage/tenants/${tenantId}/rollouts/${rolloutId}`);
+  },
+
+  create: async (tenantId: string, appId: string, envId: string, flagId: string, data: CreateRolloutRequest): Promise<RolloutPlan> => {
+    return post<RolloutPlan>(`/manage/tenants/${tenantId}/apps/${appId}/envs/${envId}/flags/${flagId}/rollouts`, data);
+  },
+
+  start: async (tenantId: string, rolloutId: string): Promise<RolloutPlan> => {
+    return post<RolloutPlan>(`/manage/tenants/${tenantId}/rollouts/${rolloutId}/start`);
+  },
+
+  pause: async (tenantId: string, rolloutId: string): Promise<RolloutPlan> => {
+    return post<RolloutPlan>(`/manage/tenants/${tenantId}/rollouts/${rolloutId}/pause`);
+  },
+
+  resume: async (tenantId: string, rolloutId: string): Promise<RolloutPlan> => {
+    return post<RolloutPlan>(`/manage/tenants/${tenantId}/rollouts/${rolloutId}/resume`);
+  },
+
+  rollback: async (tenantId: string, rolloutId: string, reason?: string): Promise<RolloutPlan> => {
+    return post<RolloutPlan>(`/manage/tenants/${tenantId}/rollouts/${rolloutId}/rollback`, { reason });
+  },
+
+  delete: async (tenantId: string, rolloutId: string): Promise<void> => {
+    return del<void>(`/manage/tenants/${tenantId}/rollouts/${rolloutId}`);
+  },
+
+  getHistory: async (tenantId: string, rolloutId: string): Promise<RolloutHistoryListResponse> => {
+    return get<RolloutHistoryListResponse>(`/manage/tenants/${tenantId}/rollouts/${rolloutId}/history`);
   },
 };

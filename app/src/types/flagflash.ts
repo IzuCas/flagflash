@@ -442,3 +442,212 @@ export interface UsageMetricsFilters {
   end_date: string;
   granularity: 'hour' | 'day' | 'week' | 'month';
 }
+
+// ==== Segments ====
+
+export interface Segment {
+  id: string;
+  tenant_id: string;
+  name: string;
+  description: string;
+  rules: SegmentRule[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SegmentRule {
+  attribute: string;
+  operator: string;
+  value: string;
+}
+
+export interface SegmentsListResponse {
+  segments: Segment[];
+}
+
+export interface CreateSegmentRequest {
+  name: string;
+  description?: string;
+  rules: SegmentRule[];
+}
+
+export interface UpdateSegmentRequest {
+  name?: string;
+  description?: string;
+  rules?: SegmentRule[];
+}
+
+// ==== Webhooks ====
+
+export interface Webhook {
+  id: string;
+  tenant_id: string;
+  name: string;
+  url: string;
+  events: string[];
+  headers?: Record<string, string>;
+  enabled: boolean;
+  retry_count: number;
+  timeout_seconds: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface WebhooksListResponse {
+  webhooks: Webhook[];
+}
+
+export interface CreateWebhookRequest {
+  name: string;
+  url: string;
+  secret?: string;
+  events: string[];
+  headers?: Record<string, string>;
+  retry_count?: number;
+  timeout_seconds?: number;
+}
+
+export interface UpdateWebhookRequest {
+  name?: string;
+  url?: string;
+  secret?: string;
+  events?: string[];
+  headers?: Record<string, string>;
+  enabled?: boolean;
+}
+
+// ==== Emergency Controls ====
+
+export type EmergencyControlType = 'kill_switch' | 'maintenance';
+
+export interface EmergencyControl {
+  id: string;
+  tenant_id: string;
+  environment_id?: string;
+  control_type: EmergencyControlType;
+  enabled: boolean;
+  reason: string;
+  enabled_by?: string;
+  enabled_at?: string;
+  expires_at?: string;
+  created_at: string;
+}
+
+export interface EmergencyControlsListResponse {
+  controls: EmergencyControl[];
+}
+
+export interface ActivateEmergencyControlRequest {
+  control_type: EmergencyControlType;
+  environment_id?: string;
+  reason: string;
+  expires_in_minutes?: number;
+}
+
+// ==== Notifications ====
+
+export type NotificationType = 'flag_change' | 'alert' | 'announcement' | 'system';
+
+export interface Notification {
+  id: string;
+  user_id: string;
+  tenant_id: string;
+  type: NotificationType;
+  title: string;
+  message?: string;
+  link?: string;
+  read: boolean;
+  read_at?: string;
+  created_at: string;
+}
+
+export interface NotificationsListResponse {
+  notifications: Notification[];
+  pagination: PaginationResponse;
+}
+
+export interface UnreadCountResponse {
+  count: number;
+}
+
+// ==== Flag History ====
+
+export interface FlagHistory {
+  id: string;
+  feature_flag_id: string;
+  version: number;
+  change_type: string;
+  changed_by?: string;
+  changed_by_name?: string;
+  comment?: string;
+  created_at: string;
+}
+
+export interface FlagHistoryListResponse {
+  history: FlagHistory[];
+  pagination: PaginationResponse;
+}
+
+export interface FlagComparisonResponse {
+  version1: FlagHistory;
+  version2: FlagHistory;
+  differences: FieldDifference[];
+}
+
+export interface FieldDifference {
+  field: string;
+  old_value: unknown;
+  new_value: unknown;
+  type: string;
+}
+
+// ==== Rollout Plans ====
+
+export type RolloutStatus = 'draft' | 'active' | 'paused' | 'completed' | 'failed';
+
+export interface RolloutPlan {
+  id: string;
+  feature_flag_id: string;
+  name: string;
+  status: RolloutStatus;
+  current_percentage: number;
+  target_percentage: number;
+  increment_percentage: number;
+  increment_interval_minutes: number;
+  auto_rollback: boolean;
+  rollback_threshold_error_rate?: number;
+  rollback_threshold_latency_ms?: number;
+  last_increment_at?: string;
+  next_increment_at?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RolloutPlansListResponse {
+  plans: RolloutPlan[];
+}
+
+export interface CreateRolloutRequest {
+  name: string;
+  target_percentage: number;
+  increment_percentage: number;
+  increment_interval_minutes: number;
+  auto_rollback?: boolean;
+  rollback_threshold_error_rate?: number;
+  rollback_threshold_latency_ms?: number;
+}
+
+export interface RolloutHistory {
+  id: string;
+  rollout_plan_id: string;
+  action: string;
+  from_percentage: number;
+  to_percentage: number;
+  reason?: string;
+  created_at: string;
+}
+
+export interface RolloutHistoryListResponse {
+  history: RolloutHistory[];
+  pagination: PaginationResponse;
+}

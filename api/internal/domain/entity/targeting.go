@@ -44,6 +44,133 @@ type Condition struct {
 	Value     interface{} `json:"value"`
 }
 
+// Matches checks if the condition matches the evaluation context
+func (c *Condition) Matches(ctx *EvaluationContext) bool {
+	value := getContextAttributeValue(c.Attribute, ctx)
+	if value == nil {
+		return false
+	}
+
+	switch c.Operator {
+	case OperatorEquals:
+		return fmt.Sprintf("%v", value) == fmt.Sprintf("%v", c.Value)
+	case OperatorNotEquals:
+		return fmt.Sprintf("%v", value) != fmt.Sprintf("%v", c.Value)
+	case OperatorContains:
+		return strings.Contains(strings.ToLower(fmt.Sprintf("%v", value)), strings.ToLower(fmt.Sprintf("%v", c.Value)))
+	case OperatorNotContains:
+		return !strings.Contains(strings.ToLower(fmt.Sprintf("%v", value)), strings.ToLower(fmt.Sprintf("%v", c.Value)))
+	case OperatorStartsWith:
+		return strings.HasPrefix(strings.ToLower(fmt.Sprintf("%v", value)), strings.ToLower(fmt.Sprintf("%v", c.Value)))
+	case OperatorEndsWith:
+		return strings.HasSuffix(strings.ToLower(fmt.Sprintf("%v", value)), strings.ToLower(fmt.Sprintf("%v", c.Value)))
+	case OperatorIn:
+		return valueInListStandalone(value, c.Value)
+	case OperatorNotIn:
+		return !valueInListStandalone(value, c.Value)
+	case OperatorRegex:
+		pattern := fmt.Sprintf("%v", c.Value)
+		matched, _ := regexp.MatchString(pattern, fmt.Sprintf("%v", value))
+		return matched
+	case OperatorGreaterThan, OperatorLessThan, OperatorGreaterEqual, OperatorLessEqual:
+		return compareNumbersStandalone(value, c.Value, c.Operator)
+	case OperatorExists:
+		return value != nil
+	}
+
+	return false
+}
+
+// getContextAttributeValue gets value from context for standalone condition matching
+func getContextAttributeValue(attribute string, ctx *EvaluationContext) interface{} {
+	switch attribute {
+	case "user_id":
+		if ctx.UserID != "" {
+			return ctx.UserID
+		}
+	case "email":
+		if ctx.Email != "" {
+			return ctx.Email
+		}
+	case "country":
+		if ctx.Country != "" {
+			return ctx.Country
+		}
+	case "region":
+		if ctx.Region != "" {
+			return ctx.Region
+		}
+	case "city":
+		if ctx.City != "" {
+			return ctx.City
+		}
+	case "version":
+		if ctx.Version != "" {
+			return ctx.Version
+		}
+	case "platform":
+		if ctx.Platform != "" {
+			return ctx.Platform
+		}
+	case "device_type":
+		if ctx.DeviceType != "" {
+			return ctx.DeviceType
+		}
+	default:
+		if ctx.Custom != nil {
+			if val, ok := ctx.Custom[attribute]; ok {
+				return val
+			}
+		}
+	}
+	if ctx.Custom != nil {
+		if val, ok := ctx.Custom[attribute]; ok {
+			return val
+		}
+	}
+	return nil
+}
+
+// valueInListStandalone checks if value is in a list (standalone function)
+func valueInListStandalone(value, list interface{}) bool {
+	strValue := strings.ToLower(fmt.Sprintf("%v", value))
+	switch v := list.(type) {
+	case []interface{}:
+		for _, item := range v {
+			if strings.ToLower(fmt.Sprintf("%v", item)) == strValue {
+				return true
+			}
+		}
+	case []string:
+		for _, item := range v {
+			if strings.ToLower(item) == strValue {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// compareNumbersStandalone compares numeric values (standalone function)
+func compareNumbersStandalone(value, target interface{}, op Operator) bool {
+	v, ok1 := toFloat64(value)
+	t, ok2 := toFloat64(target)
+	if !ok1 || !ok2 {
+		return false
+	}
+	switch op {
+	case OperatorGreaterThan:
+		return v > t
+	case OperatorLessThan:
+		return v < t
+	case OperatorGreaterEqual:
+		return v >= t
+	case OperatorLessEqual:
+		return v <= t
+	}
+	return false
+}
+
 // TargetingRule represents a targeting rule for a feature flag
 type TargetingRule struct {
 	ID            uuid.UUID       `json:"id"`

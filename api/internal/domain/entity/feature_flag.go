@@ -17,6 +17,25 @@ const (
 	FlagTypeNumber  FlagType = "number"
 )
 
+// LifecycleState defines the lifecycle state of a flag
+type LifecycleState string
+
+const (
+	LifecycleStateDraft      LifecycleState = "draft"
+	LifecycleStateActive     LifecycleState = "active"
+	LifecycleStateDeprecated LifecycleState = "deprecated"
+	LifecycleStateArchived   LifecycleState = "archived"
+)
+
+// ScheduleRecurrence defines recurring schedule for flags
+type ScheduleRecurrence struct {
+	Type       string `json:"type"`                   // "daily", "weekly", "monthly", "cron"
+	DaysOfWeek []int  `json:"days_of_week,omitempty"` // 0=Sunday, 6=Saturday
+	TimeStart  string `json:"time_start,omitempty"`   // "09:00"
+	TimeEnd    string `json:"time_end,omitempty"`     // "18:00"
+	CronExpr   string `json:"cron_expr,omitempty"`    // For cron type
+}
+
 // FeatureFlag represents a feature flag
 type FeatureFlag struct {
 	ID            uuid.UUID       `json:"id"`
@@ -31,29 +50,43 @@ type FeatureFlag struct {
 	DefaultValue  json.RawMessage `json:"default_value"`
 	Version       int             `json:"version"`
 	Tags          []string        `json:"tags"`
-	CreatedAt     time.Time       `json:"created_at"`
-	UpdatedAt     time.Time       `json:"updated_at"`
-	DeletedAt     *time.Time      `json:"deleted_at,omitempty"`
+	// Scheduling fields
+	ScheduledEnableAt  *time.Time          `json:"scheduled_enable_at,omitempty"`
+	ScheduledDisableAt *time.Time          `json:"scheduled_disable_at,omitempty"`
+	ScheduleTimezone   string              `json:"schedule_timezone,omitempty"`
+	ScheduleRecurrence *ScheduleRecurrence `json:"schedule_recurrence,omitempty"`
+	// Lifecycle
+	LifecycleState LifecycleState `json:"lifecycle_state"`
+	// Tracking
+	LastEvaluatedAt *time.Time `json:"last_evaluated_at,omitempty"`
+	// Dependencies
+	PrerequisiteFlagID *uuid.UUID `json:"prerequisite_flag_id,omitempty"`
+	// Timestamps
+	CreatedAt time.Time  `json:"created_at"`
+	UpdatedAt time.Time  `json:"updated_at"`
+	DeletedAt *time.Time `json:"deleted_at,omitempty"`
 }
 
 // NewFeatureFlag creates a new feature flag
 func NewFeatureFlag(environmentID uuid.UUID, key, name, description string, flagType FlagType, defaultValue json.RawMessage) *FeatureFlag {
 	now := time.Now()
 	return &FeatureFlag{
-		ID:            uuid.New(),
-		EnvironmentID: environmentID,
-		Key:           key,
-		Name:          name,
-		Description:   description,
-		Type:          flagType,
-		FlagType:      flagType,
-		Enabled:       false,
-		Value:         defaultValue,
-		DefaultValue:  defaultValue,
-		Version:       1,
-		Tags:          []string{},
-		CreatedAt:     now,
-		UpdatedAt:     now,
+		ID:               uuid.New(),
+		EnvironmentID:    environmentID,
+		Key:              key,
+		Name:             name,
+		Description:      description,
+		Type:             flagType,
+		FlagType:         flagType,
+		Enabled:          false,
+		Value:            defaultValue,
+		DefaultValue:     defaultValue,
+		Version:          1,
+		Tags:             []string{},
+		LifecycleState:   LifecycleStateActive,
+		ScheduleTimezone: "UTC",
+		CreatedAt:        now,
+		UpdatedAt:        now,
 	}
 }
 

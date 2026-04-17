@@ -14,6 +14,9 @@ import {
   Plus,
   Users,
   ChevronRight,
+  Webhook,
+  ShieldAlert,
+  UsersRound,
 } from 'lucide-react';
 
 import LoginPage from './pages/Login';
@@ -31,6 +34,9 @@ import AuditLogPage from './pages/flagflash/AuditLog';
 import UsageMetricsPage from './pages/flagflash/UsageMetrics';
 import SelectTenantPage from './pages/flagflash/SelectTenant';
 import UsersPage from './pages/flagflash/Users';
+import WebhooksPage from './pages/flagflash/Webhooks';
+import EmergencyControlsPage from './pages/flagflash/EmergencyControls';
+import SegmentsPage from './pages/flagflash/Segments';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { applicationsApi } from './services/flagflash-api';
 import type { Application } from './types/flagflash';
@@ -225,6 +231,45 @@ function ProtectedApp() {
             <Users size={18} />
             Users
           </NavLink>
+          <NavLink
+            to={`/tenants/${selectedTenant.id}/segments`}
+            className={({ isActive }) =>
+              `flex items-center gap-3 py-2.5 px-3 rounded-lg text-sm font-medium transition-all duration-200 ${
+                isActive
+                  ? 'bg-accent-purple/10 text-accent-purple border-l-2 border-accent-purple'
+                  : 'text-text-secondary hover:bg-bg-tertiary hover:text-text-primary'
+              }`
+            }
+          >
+            <UsersRound size={18} />
+            Segments
+          </NavLink>
+          <NavLink
+            to={`/tenants/${selectedTenant.id}/webhooks`}
+            className={({ isActive }) =>
+              `flex items-center gap-3 py-2.5 px-3 rounded-lg text-sm font-medium transition-all duration-200 ${
+                isActive
+                  ? 'bg-accent-purple/10 text-accent-purple border-l-2 border-accent-purple'
+                  : 'text-text-secondary hover:bg-bg-tertiary hover:text-text-primary'
+              }`
+            }
+          >
+            <Webhook size={18} />
+            Webhooks
+          </NavLink>
+          <NavLink
+            to={`/tenants/${selectedTenant.id}/emergency`}
+            className={({ isActive }) =>
+              `flex items-center gap-3 py-2.5 px-3 rounded-lg text-sm font-medium transition-all duration-200 ${
+                isActive
+                  ? 'bg-red-500/10 text-red-400 border-l-2 border-red-400'
+                  : 'text-text-secondary hover:bg-bg-tertiary hover:text-text-primary'
+              }`
+            }
+          >
+            <ShieldAlert size={18} />
+            Emergency
+          </NavLink>
 
           <div className="text-xs font-semibold text-text-secondary uppercase tracking-wider px-3 mt-6 mb-2">
             Applications
@@ -298,6 +343,9 @@ function ProtectedApp() {
           <Route path="/tenants/:tenantId/applications/:appId/environments/:envId/flags" element={<FeatureFlagsPage />} />
           <Route path="/tenants/:tenantId/api-keys" element={<APIKeysPage />} />
           <Route path="/tenants/:tenantId/users" element={<UsersPage />} />
+          <Route path="/tenants/:tenantId/segments" element={<SegmentsPage />} />
+          <Route path="/tenants/:tenantId/webhooks" element={<WebhooksPage />} />
+          <Route path="/tenants/:tenantId/emergency" element={<EmergencyControlsPage />} />
           <Route path="/analytics" element={<UsageMetricsPage />} />
           <Route path="/audit-log" element={<AuditLogPage />} />
           <Route path="/settings" element={<SettingsPage />} />

@@ -599,3 +599,277 @@ type EvaluationEventInput struct {
 	SDKVersion    *string                `json:"sdk_version,omitempty"`
 	EvaluatedAt   *time.Time             `json:"evaluated_at,omitempty"`
 }
+
+// ===== Segment DTOs =====
+type CreateSegmentRequest struct {
+	TenantID string `path:"tenant_id" format:"uuid"`
+	Body     struct {
+		Name        string         `json:"name" minLength:"1" maxLength:"255"`
+		Description string         `json:"description,omitempty"`
+		Conditions  []ConditionDTO `json:"conditions"`
+		IsDynamic   bool           `json:"is_dynamic"`
+	}
+}
+
+type UpdateSegmentRequest struct {
+	TenantID  string `path:"tenant_id" format:"uuid"`
+	SegmentID string `path:"segment_id" format:"uuid"`
+	Body      struct {
+		Name        string         `json:"name,omitempty"`
+		Description string         `json:"description,omitempty"`
+		Conditions  []ConditionDTO `json:"conditions,omitempty"`
+	}
+}
+
+type SegmentDTO struct {
+	ID            uuid.UUID      `json:"id"`
+	TenantID      uuid.UUID      `json:"tenant_id"`
+	Name          string         `json:"name"`
+	Description   string         `json:"description,omitempty"`
+	Conditions    []ConditionDTO `json:"conditions"`
+	IsDynamic     bool           `json:"is_dynamic"`
+	IncludedUsers []string       `json:"included_users"`
+	ExcludedUsers []string       `json:"excluded_users"`
+	CreatedAt     time.Time      `json:"created_at"`
+	UpdatedAt     time.Time      `json:"updated_at"`
+}
+
+type SegmentResponse struct {
+	Body SegmentDTO
+}
+
+type SegmentsListResponse struct {
+	Body struct {
+		Segments   []SegmentDTO       `json:"segments"`
+		Pagination PaginationResponse `json:"pagination"`
+	}
+}
+
+type SegmentUserRequest struct {
+	TenantID  string `path:"tenant_id" format:"uuid"`
+	SegmentID string `path:"segment_id" format:"uuid"`
+	Body      struct {
+		UserID string `json:"user_id" minLength:"1"`
+	}
+}
+
+// ===== Webhook DTOs =====
+type CreateWebhookRequest struct {
+	TenantID string `path:"tenant_id" format:"uuid"`
+	Body     struct {
+		Name           string            `json:"name" minLength:"1" maxLength:"255"`
+		URL            string            `json:"url" format:"uri"`
+		Secret         string            `json:"secret,omitempty"`
+		Events         []string          `json:"events" minItems:"1"`
+		Headers        map[string]string `json:"headers,omitempty"`
+		RetryCount     int               `json:"retry_count,omitempty" minimum:"0" maximum:"10"`
+		TimeoutSeconds int               `json:"timeout_seconds,omitempty" minimum:"1" maximum:"60"`
+	}
+}
+
+type UpdateWebhookRequest struct {
+	TenantID  string `path:"tenant_id" format:"uuid"`
+	WebhookID string `path:"webhook_id" format:"uuid"`
+	Body      struct {
+		Name    string            `json:"name,omitempty"`
+		URL     string            `json:"url,omitempty" format:"uri"`
+		Secret  string            `json:"secret,omitempty"`
+		Events  []string          `json:"events,omitempty"`
+		Headers map[string]string `json:"headers,omitempty"`
+		Enabled *bool             `json:"enabled,omitempty"`
+	}
+}
+
+type WebhookDTO struct {
+	ID             uuid.UUID         `json:"id"`
+	TenantID       uuid.UUID         `json:"tenant_id"`
+	Name           string            `json:"name"`
+	URL            string            `json:"url"`
+	Events         []string          `json:"events"`
+	Headers        map[string]string `json:"headers,omitempty"`
+	Enabled        bool              `json:"enabled"`
+	RetryCount     int               `json:"retry_count"`
+	TimeoutSeconds int               `json:"timeout_seconds"`
+	CreatedAt      time.Time         `json:"created_at"`
+	UpdatedAt      time.Time         `json:"updated_at"`
+}
+
+type WebhookResponse struct {
+	Body WebhookDTO
+}
+
+type WebhooksListResponse struct {
+	Body struct {
+		Webhooks []WebhookDTO `json:"webhooks"`
+	}
+}
+
+type WebhookDeliveryDTO struct {
+	ID             uuid.UUID  `json:"id"`
+	WebhookID      uuid.UUID  `json:"webhook_id"`
+	EventType      string     `json:"event_type"`
+	ResponseStatus *int       `json:"response_status,omitempty"`
+	DurationMs     int        `json:"duration_ms"`
+	Attempt        int        `json:"attempt"`
+	Status         string     `json:"status"`
+	ErrorMessage   string     `json:"error_message,omitempty"`
+	DeliveredAt    *time.Time `json:"delivered_at,omitempty"`
+	CreatedAt      time.Time  `json:"created_at"`
+}
+
+type WebhookDeliveriesResponse struct {
+	Body struct {
+		Deliveries []WebhookDeliveryDTO `json:"deliveries"`
+		Pagination PaginationResponse   `json:"pagination"`
+	}
+}
+
+// ===== Emergency Control DTOs =====
+type CreateEmergencyControlRequest struct {
+	TenantID string `path:"tenant_id" format:"uuid"`
+	Body     struct {
+		ControlType   string  `json:"control_type" enum:"kill_switch,read_only,maintenance"`
+		EnvironmentID *string `json:"environment_id,omitempty" format:"uuid"`
+		Reason        string  `json:"reason" minLength:"1"`
+		ExpiresIn     *int    `json:"expires_in_minutes,omitempty" minimum:"1"`
+	}
+}
+
+type EmergencyControlDTO struct {
+	ID            uuid.UUID  `json:"id"`
+	TenantID      uuid.UUID  `json:"tenant_id"`
+	EnvironmentID *uuid.UUID `json:"environment_id,omitempty"`
+	ControlType   string     `json:"control_type"`
+	Enabled       bool       `json:"enabled"`
+	Reason        string     `json:"reason"`
+	EnabledBy     *uuid.UUID `json:"enabled_by,omitempty"`
+	EnabledAt     *time.Time `json:"enabled_at,omitempty"`
+	ExpiresAt     *time.Time `json:"expires_at,omitempty"`
+	CreatedAt     time.Time  `json:"created_at"`
+}
+
+type EmergencyControlResponse struct {
+	Body EmergencyControlDTO
+}
+
+type EmergencyControlsListResponse struct {
+	Body struct {
+		Controls []EmergencyControlDTO `json:"controls"`
+	}
+}
+
+// ===== Notification DTOs =====
+type NotificationDTO struct {
+	ID        uuid.UUID  `json:"id"`
+	UserID    uuid.UUID  `json:"user_id"`
+	TenantID  uuid.UUID  `json:"tenant_id"`
+	Type      string     `json:"type"`
+	Title     string     `json:"title"`
+	Message   string     `json:"message,omitempty"`
+	Link      string     `json:"link,omitempty"`
+	Read      bool       `json:"read"`
+	ReadAt    *time.Time `json:"read_at,omitempty"`
+	CreatedAt time.Time  `json:"created_at"`
+}
+
+type NotificationResponse struct {
+	Body NotificationDTO
+}
+
+type NotificationsListResponse struct {
+	Body struct {
+		Notifications []NotificationDTO  `json:"notifications"`
+		Pagination    PaginationResponse `json:"pagination"`
+	}
+}
+
+type UnreadCountResponse struct {
+	Body struct {
+		Count int `json:"count"`
+	}
+}
+
+// ===== Flag History DTOs =====
+type FlagHistoryDTO struct {
+	ID            uuid.UUID `json:"id"`
+	FeatureFlagID uuid.UUID `json:"feature_flag_id"`
+	Version       int       `json:"version"`
+	ChangeType    string    `json:"change_type"`
+	ChangedBy     *string   `json:"changed_by,omitempty"`
+	ChangedByName string    `json:"changed_by_name,omitempty"`
+	Comment       string    `json:"comment,omitempty"`
+	CreatedAt     time.Time `json:"created_at"`
+}
+
+type FlagHistoryResponse struct {
+	Body FlagHistoryDTO
+}
+
+type FlagHistoryListResponse struct {
+	Body struct {
+		History    []FlagHistoryDTO   `json:"history"`
+		Pagination PaginationResponse `json:"pagination"`
+	}
+}
+
+// ===== Rollout Plan DTOs =====
+type CreateRolloutRequest struct {
+	TenantID string `path:"tenant_id" format:"uuid"`
+	AppID    string `path:"app_id" format:"uuid"`
+	EnvID    string `path:"env_id" format:"uuid"`
+	FlagID   string `path:"flag_id" format:"uuid"`
+	Body     struct {
+		Name                       string   `json:"name" minLength:"1" maxLength:"255"`
+		TargetPercentage           int      `json:"target_percentage" minimum:"1" maximum:"100"`
+		IncrementPercentage        int      `json:"increment_percentage" minimum:"1" maximum:"100"`
+		IncrementIntervalMinutes   int      `json:"increment_interval_minutes" minimum:"1"`
+		AutoRollback               bool     `json:"auto_rollback"`
+		RollbackThresholdErrorRate *float64 `json:"rollback_threshold_error_rate,omitempty"`
+		RollbackThresholdLatencyMs *int     `json:"rollback_threshold_latency_ms,omitempty"`
+	}
+}
+
+type RolloutPlanDTO struct {
+	ID                         uuid.UUID  `json:"id"`
+	FeatureFlagID              uuid.UUID  `json:"feature_flag_id"`
+	Name                       string     `json:"name"`
+	Status                     string     `json:"status"`
+	CurrentPercentage          int        `json:"current_percentage"`
+	TargetPercentage           int        `json:"target_percentage"`
+	IncrementPercentage        int        `json:"increment_percentage"`
+	IncrementIntervalMinutes   int        `json:"increment_interval_minutes"`
+	AutoRollback               bool       `json:"auto_rollback"`
+	RollbackThresholdErrorRate *float64   `json:"rollback_threshold_error_rate,omitempty"`
+	RollbackThresholdLatencyMs *int       `json:"rollback_threshold_latency_ms,omitempty"`
+	LastIncrementAt            *time.Time `json:"last_increment_at,omitempty"`
+	NextIncrementAt            *time.Time `json:"next_increment_at,omitempty"`
+	CreatedAt                  time.Time  `json:"created_at"`
+	UpdatedAt                  time.Time  `json:"updated_at"`
+}
+
+type RolloutPlanResponse struct {
+	Body RolloutPlanDTO
+}
+
+type RolloutPlansListResponse struct {
+	Body struct {
+		Plans []RolloutPlanDTO `json:"plans"`
+	}
+}
+
+type RolloutHistoryDTO struct {
+	ID             uuid.UUID `json:"id"`
+	RolloutPlanID  uuid.UUID `json:"rollout_plan_id"`
+	Action         string    `json:"action"`
+	FromPercentage int       `json:"from_percentage"`
+	ToPercentage   int       `json:"to_percentage"`
+	Reason         string    `json:"reason,omitempty"`
+	CreatedAt      time.Time `json:"created_at"`
+}
+
+type RolloutHistoryListResponse struct {
+	Body struct {
+		History    []RolloutHistoryDTO `json:"history"`
+		Pagination PaginationResponse  `json:"pagination"`
+	}
+}
