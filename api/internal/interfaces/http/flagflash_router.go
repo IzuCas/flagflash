@@ -4,11 +4,15 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"os"
+	"strings"
+	"time"
 
 	"github.com/IzuCas/flagflash/internal/application/service"
 	"github.com/IzuCas/flagflash/internal/domain/repository"
 	"github.com/IzuCas/flagflash/internal/interfaces/http/handler"
 	"github.com/IzuCas/flagflash/internal/interfaces/http/middleware"
+	pkgmw "github.com/IzuCas/flagflash/pkg/middleware"
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/danielgtaylor/huma/v2/adapters/humachi"
 	"github.com/go-chi/chi/v5"
@@ -71,10 +75,16 @@ func (fr *FlagFlashRouter) SetupRoutes(r chi.Router) {
 		configureOpenAPI(publicAPI)
 
 		// Register public auth routes (login, register, refresh)
+		// Apply login rate limiting: 5 failed attempts -> 5 min block
 		var authHandler *handler.FlagFlashAuthHandler
 		if fr.config.AuthService != nil {
 			authHandler = handler.NewFlagFlashAuthHandler(fr.config.AuthService)
-			authHandler.RegisterRoutes(publicAPI)
+			// Wrap auth routes with login rate limiting
+			r.Group(func(r chi.Router) {
+				r.Use(pkgmw.LoginRateLimit(5, 5*time.Minute))
+				authAPI := humachi.New(r, huma.DefaultConfig("FlagFlash Auth API", "1.0.0"))
+				authHandler.RegisterRoutes(authAPI)
+			})
 		}
 
 		// Register public invite routes (validate, accept)
@@ -174,10 +184,18 @@ func (fr *FlagFlashRouter) SetupRoutes(r chi.Router) {
 	})
 }
 
+// corsMiddleware returns a CORS middleware that reads allowed origins from
+// the CORS_ALLOWED_ORIGINS environment variable. Falls back to same-origin only
+// if not configured, preventing open CORS in production.
 func corsMiddleware() func(http.Handler) http.Handler {
+	allowedOrigins := parseAllowedOrigins()
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.Header().Set("Access-Control-Allow-Origin", "*")
+			origin := r.Header.Get("Origin")
+			if origin != "" && isOriginAllowed(origin, allowedOrigins) {
+				w.Header().Set("Access-Control-Allow-Origin", origin)
+				w.Header().Set("Vary", "Origin")
+			}
 			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
 			w.Header().Set("Access-Control-Allow-Headers", "Accept, Authorization, Content-Type, X-API-Key")
 			w.Header().Set("Access-Control-Max-Age", "3600")
@@ -190,6 +208,34 @@ func corsMiddleware() func(http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 		})
 	}
+}
+
+// parseAllowedOrigins reads CORS_ALLOWED_ORIGINS env var and returns a list
+// of allowed origins. Empty list means no cross-origin requests allowed.
+func parseAllowedOrigins() []string {
+	raw := os.Getenv("CORS_ALLOWED_ORIGINS")
+	if raw == "" {
+		return nil
+	}
+	var origins []string
+	for _, o := range strings.Split(raw, ",") {
+		o = strings.TrimSpace(o)
+		if o != "" {
+			origins = append(origins, o)
+		}
+	}
+	return origins
+}
+
+// isOriginAllowed checks if the origin is in the allowed list.
+// Supports wildcard "*" for development only.
+func isOriginAllowed(origin string, allowed []string) bool {
+	for _, a := range allowed {
+		if a == "*" || a == origin {
+			return true
+		}
+	}
+	return false
 }
 
 func configureOpenAPI(api huma.API) {

@@ -11,16 +11,16 @@ services:
     ports:
       - "5432:5432"
     environment:
-      POSTGRES_USER: flagflash
-      POSTGRES_PASSWORD: flagflash_secret
-      POSTGRES_DB: flagflash
+      POSTGRES_USER: ${POSTGRES_USER:-flagflash}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-flagflash_secret}
+      POSTGRES_DB: ${POSTGRES_DB:-flagflash}
     volumes:
       - postgres-data:/var/lib/postgresql/data
       - ./api/migrations:/docker-entrypoint-initdb.d:ro
     networks:
       - flagflash-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U flagflash -d flagflash"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-flagflash} -d ${POSTGRES_DB:-flagflash}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -34,15 +34,15 @@ services:
     restart: unless-stopped
     ports:
       - "6379:6379"
-    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru --requirepass redis_secret
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru --requirepass ${REDIS_PASSWORD:-redis_secret}
     environment:
-      - REDIS_PASSWORD=redis_secret
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-redis_secret}
     volumes:
       - redis-data:/data
     networks:
       - flagflash-network
     healthcheck:
-      test: ["CMD", "redis-cli", "-a", "redis_secret", "ping"]
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-redis_secret}", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
