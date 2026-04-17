@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { environmentsApi, applicationsApi } from '../../services/flagflash-api';
 import { ConfirmDeleteModal, Modal } from '../../components';
+import { usePermissions } from '../../hooks/usePermissions';
 import type { Environment, Application } from '../../types/flagflash';
 
 const DEFAULT_COLORS = [
@@ -27,6 +28,7 @@ const DEFAULT_COLORS = [
 
 export default function EnvironmentsPage() {
   const { tenantId, appId } = useParams<{ tenantId: string; appId: string }>();
+  const { canCreateEnvironment, canUpdateEnvironment, canDeleteEnvironment } = usePermissions();
   const [environments, setEnvironments] = useState<Environment[]>([]);
   const [application, setApplication] = useState<Application | null>(null);
   const [loading, setLoading] = useState(true);
@@ -94,13 +96,15 @@ export default function EnvironmentsPage() {
               </p>
             )}
           </div>
-          <button
-            onClick={() => setShowCreateModal(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-accent-purple text-white rounded-lg hover:bg-accent-purple/90 transition-colors"
-          >
-            <Plus size={20} />
-            Create Environment
-          </button>
+          {canCreateEnvironment && (
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-accent-purple text-white rounded-lg hover:bg-accent-purple/90 transition-colors"
+            >
+              <Plus size={20} />
+              Create Environment
+            </button>
+          )}
         </div>
 
         {/* Search */}
@@ -143,20 +147,26 @@ export default function EnvironmentsPage() {
                   >
                     <Server style={{ color: env.color || '#8b5cf6' }} size={20} />
                   </div>
-                  <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button
-                      onClick={() => setEditingEnv(env)}
-                      className="p-2 hover:bg-bg-tertiary rounded-lg transition-colors"
-                    >
-                      <Edit2 size={16} className="text-text-secondary" />
-                    </button>
-                    <button
-                      onClick={() => setDeletingEnv(env)}
-                      className="p-2 hover:bg-red-500/10 rounded-lg transition-colors"
-                    >
-                      <Trash2 size={16} className="text-red-400" />
-                    </button>
-                  </div>
+                  {(canUpdateEnvironment || canDeleteEnvironment) && (
+                    <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      {canUpdateEnvironment && (
+                        <button
+                          onClick={() => setEditingEnv(env)}
+                          className="p-2 hover:bg-bg-tertiary rounded-lg transition-colors"
+                        >
+                          <Edit2 size={16} className="text-text-secondary" />
+                        </button>
+                      )}
+                      {canDeleteEnvironment && (
+                        <button
+                          onClick={() => setDeletingEnv(env)}
+                          className="p-2 hover:bg-red-500/10 rounded-lg transition-colors"
+                        >
+                          <Trash2 size={16} className="text-red-400" />
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </div>
                 
                 <div className="flex items-center gap-2 mb-1">

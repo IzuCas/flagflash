@@ -17,6 +17,7 @@ import {
 import { targetingRulesApi, featureFlagsApi } from '../../services/flagflash-api';
 import type { TargetingRule, FeatureFlag, Condition, Operator } from '../../types/flagflash';
 import { ConfirmDeleteModal, Modal } from '../../components';
+import { usePermissions } from '../../hooks/usePermissions';
 
 const OPERATORS: { value: Operator; label: string; description: string }[] = [
   { value: 'eq', label: '=', description: 'equals' },
@@ -42,6 +43,7 @@ export default function TargetingRulesPage() {
     envId: string;
     flagId: string;
   }>();
+  const { canCreateTargetingRule, canUpdateTargetingRule, canDeleteTargetingRule } = usePermissions();
   const [rules, setRules] = useState<TargetingRule[]>([]);
   const [flag, setFlag] = useState<FeatureFlag | null>(null);
   const [loading, setLoading] = useState(true);
@@ -137,13 +139,15 @@ export default function TargetingRulesPage() {
               </p>
             )}
           </div>
-          <button
-            onClick={() => setShowCreateModal(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-accent-purple text-white rounded-lg hover:bg-accent-purple/90 transition-colors"
-          >
-            <Plus size={20} />
-            Add Rule
-          </button>
+          {canCreateTargetingRule && (
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-accent-purple text-white rounded-lg hover:bg-accent-purple/90 transition-colors"
+            >
+              <Plus size={20} />
+              Add Rule
+            </button>
+          )}
         </div>
 
         {/* Info Box */}
@@ -228,33 +232,39 @@ export default function TargetingRulesPage() {
                           )}
                         </button>
 
-                        <button
-                          onClick={() => handleToggle(rule)}
-                          className={`p-2 rounded-lg transition-colors ${
-                            rule.enabled 
-                              ? 'hover:bg-green-500/10 text-green-400' 
-                              : 'hover:bg-bg-tertiary text-text-secondary'
-                          }`}
-                          title={rule.enabled ? 'Disable' : 'Enable'}
-                        >
-                          {rule.enabled ? <ToggleRight size={18} /> : <ToggleLeft size={18} />}
-                        </button>
+                        {canUpdateTargetingRule && (
+                          <button
+                            onClick={() => handleToggle(rule)}
+                            className={`p-2 rounded-lg transition-colors ${
+                              rule.enabled 
+                                ? 'hover:bg-green-500/10 text-green-400' 
+                                : 'hover:bg-bg-tertiary text-text-secondary'
+                            }`}
+                            title={rule.enabled ? 'Disable' : 'Enable'}
+                          >
+                            {rule.enabled ? <ToggleRight size={18} /> : <ToggleLeft size={18} />}
+                          </button>
+                        )}
 
-                        <button
-                          onClick={() => setEditingRule(rule)}
-                          className="p-2 hover:bg-bg-tertiary rounded-lg transition-colors"
-                          title="Edit"
-                        >
-                          <Edit2 size={18} className="text-text-secondary" />
-                        </button>
+                        {canUpdateTargetingRule && (
+                          <button
+                            onClick={() => setEditingRule(rule)}
+                            className="p-2 hover:bg-bg-tertiary rounded-lg transition-colors"
+                            title="Edit"
+                          >
+                            <Edit2 size={18} className="text-text-secondary" />
+                          </button>
+                        )}
 
-                        <button
-                          onClick={() => setDeletingRule(rule)}
-                          className="p-2 hover:bg-red-500/10 rounded-lg transition-colors"
-                          title="Delete"
-                        >
-                          <Trash2 size={18} className="text-red-400" />
-                        </button>
+                        {canDeleteTargetingRule && (
+                          <button
+                            onClick={() => setDeletingRule(rule)}
+                            className="p-2 hover:bg-red-500/10 rounded-lg transition-colors"
+                            title="Delete"
+                          >
+                            <Trash2 size={18} className="text-red-400" />
+                          </button>
+                        )}
                       </div>
                     </div>
 
