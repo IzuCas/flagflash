@@ -536,20 +536,24 @@ export const emergencyControlsApi = {
 
 // ==== Notifications ====
 export const notificationsApi = {
-  list: async (tenantId: string, page = 1, limit = 20): Promise<NotificationsListResponse> => {
-    return get<NotificationsListResponse>(`/manage/tenants/${tenantId}/notifications`, { page, limit });
+  list: async (page = 1, limit = 20): Promise<NotificationsListResponse> => {
+    return get<NotificationsListResponse>(`/manage/users/me/notifications`, { page, limit });
   },
 
-  getUnreadCount: async (tenantId: string): Promise<{ count: number }> => {
-    return get<{ count: number }>(`/manage/tenants/${tenantId}/notifications/unread-count`);
+  getUnreadCount: async (): Promise<{ count: number }> => {
+    return get<{ count: number }>(`/manage/users/me/notifications/unread-count`);
   },
 
-  markAsRead: async (tenantId: string, notificationId: string): Promise<void> => {
-    return post<void>(`/manage/tenants/${tenantId}/notifications/${notificationId}/read`);
+  markAsRead: async (notificationId: string): Promise<void> => {
+    return post<void>(`/manage/users/me/notifications/${notificationId}/read`);
   },
 
-  markAllAsRead: async (tenantId: string): Promise<void> => {
-    return post<void>(`/manage/tenants/${tenantId}/notifications/mark-all-read`);
+  markAllAsRead: async (): Promise<void> => {
+    return post<void>(`/manage/users/me/notifications/read-all`);
+  },
+
+  delete: async (notificationId: string): Promise<void> => {
+    return del<void>(`/manage/users/me/notifications/${notificationId}`);
   },
 };
 

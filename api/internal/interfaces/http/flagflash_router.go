@@ -33,6 +33,10 @@ type FlagFlashRouterConfig struct {
 	AuditLogService      *service.AuditLogService
 	UsageMetricsService  *service.UsageMetricsService
 	UserService          *service.UserService
+	SegmentService       *service.SegmentService
+	WebhookService       *service.WebhookService
+	NotificationService  *service.NotificationService
+	RolloutService       *service.RolloutService
 	// Repositories
 	UserRepo repository.UserRepository
 	// Config
@@ -178,6 +182,26 @@ func (fr *FlagFlashRouter) SetupRoutes(r chi.Router) {
 			if fr.config.UserService != nil {
 				userHandler := handler.NewUserHandler(fr.config.UserService, fr.config.AppURL)
 				userHandler.RegisterRoutes(dashboardAPI)
+			}
+
+			if fr.config.SegmentService != nil {
+				segmentHandler := handler.NewSegmentHandler(fr.config.SegmentService)
+				segmentHandler.RegisterRoutes(dashboardAPI)
+			}
+
+			if fr.config.WebhookService != nil {
+				webhookHandler := handler.NewWebhookHandler(fr.config.WebhookService)
+				webhookHandler.RegisterRoutes(dashboardAPI)
+			}
+
+			if fr.config.NotificationService != nil {
+				notificationHandler := handler.NewNotificationHandler(fr.config.NotificationService)
+				notificationHandler.RegisterRoutes(dashboardAPI)
+			}
+
+			if fr.config.RolloutService != nil {
+				rolloutHandler := handler.NewRolloutHandler(fr.config.RolloutService)
+				rolloutHandler.RegisterRoutes(dashboardAPI)
 			}
 		})
 

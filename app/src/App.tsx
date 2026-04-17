@@ -17,6 +17,8 @@ import {
   Webhook,
   ShieldAlert,
   UsersRound,
+  Bell,
+  GitBranch,
 } from 'lucide-react';
 
 import LoginPage from './pages/Login';
@@ -37,6 +39,8 @@ import UsersPage from './pages/flagflash/Users';
 import WebhooksPage from './pages/flagflash/Webhooks';
 import EmergencyControlsPage from './pages/flagflash/EmergencyControls';
 import SegmentsPage from './pages/flagflash/Segments';
+import NotificationsPage from './pages/flagflash/Notifications';
+import RolloutsPage from './pages/flagflash/Rollouts';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { applicationsApi } from './services/flagflash-api';
 import type { Application } from './types/flagflash';
@@ -270,6 +274,32 @@ function ProtectedApp() {
             <ShieldAlert size={18} />
             Emergency
           </NavLink>
+          <NavLink
+            to={`/tenants/${selectedTenant.id}/rollouts`}
+            className={({ isActive }) =>
+              `flex items-center gap-3 py-2.5 px-3 rounded-lg text-sm font-medium transition-all duration-200 ${
+                isActive
+                  ? 'bg-accent-purple/10 text-accent-purple border-l-2 border-accent-purple'
+                  : 'text-text-secondary hover:bg-bg-tertiary hover:text-text-primary'
+              }`
+            }
+          >
+            <GitBranch size={18} />
+            Rollouts
+          </NavLink>
+          <NavLink
+            to="/notifications"
+            className={({ isActive }) =>
+              `flex items-center gap-3 py-2.5 px-3 rounded-lg text-sm font-medium transition-all duration-200 ${
+                isActive
+                  ? 'bg-accent-purple/10 text-accent-purple border-l-2 border-accent-purple'
+                  : 'text-text-secondary hover:bg-bg-tertiary hover:text-text-primary'
+              }`
+            }
+          >
+            <Bell size={18} />
+            Notifications
+          </NavLink>
 
           <div className="text-xs font-semibold text-text-secondary uppercase tracking-wider px-3 mt-6 mb-2">
             Applications
@@ -346,6 +376,8 @@ function ProtectedApp() {
           <Route path="/tenants/:tenantId/segments" element={<SegmentsPage />} />
           <Route path="/tenants/:tenantId/webhooks" element={<WebhooksPage />} />
           <Route path="/tenants/:tenantId/emergency" element={<EmergencyControlsPage />} />
+          <Route path="/tenants/:tenantId/rollouts" element={<RolloutsPage />} />
+          <Route path="/notifications" element={<NotificationsPage />} />
           <Route path="/analytics" element={<UsageMetricsPage />} />
           <Route path="/audit-log" element={<AuditLogPage />} />
           <Route path="/settings" element={<SettingsPage />} />

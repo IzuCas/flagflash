@@ -102,6 +102,12 @@ func main() {
 	apiKeyRepo := postgres.NewAPIKeyRepo(db)
 	evalEventRepo := postgres.NewEvaluationEventRepository(db.DB)
 	inviteTokenRepo := postgres.NewInviteTokenRepository(db.DB)
+	segmentRepo := postgres.NewSegmentRepo(db)
+	webhookRepo := postgres.NewWebhookRepo(db)
+	webhookDeliveryRepo := postgres.NewWebhookDeliveryRepo(db)
+	notificationRepo := postgres.NewNotificationRepo(db)
+	rolloutPlanRepo := postgres.NewRolloutPlanRepo(db)
+	rolloutHistoryRepo := postgres.NewRolloutHistoryRepo(db)
 
 	// Initialize Redis cache (if available)
 	var flagCache service.FlagCache
@@ -153,6 +159,10 @@ func main() {
 	}
 
 	userService := service.NewUserService(userRepo, userMembershipRepo, tenantRepo, auditRepo, inviteTokenRepo, emailService, cfg.AppURL)
+	segmentService := service.NewSegmentService(segmentRepo, auditRepo)
+	webhookService := service.NewWebhookService(webhookRepo, webhookDeliveryRepo)
+	notificationService := service.NewNotificationService(notificationRepo, userRepo, userMembershipRepo)
+	rolloutService := service.NewRolloutService(rolloutPlanRepo, rolloutHistoryRepo, flagRepo, webhookService)
 
 	logger.Info("Services initialized")
 
@@ -202,6 +212,10 @@ func main() {
 		AuditLogService:      auditLogService,
 		UsageMetricsService:  usageMetricsService,
 		UserService:          userService,
+		SegmentService:       segmentService,
+		WebhookService:       webhookService,
+		NotificationService:  notificationService,
+		RolloutService:       rolloutService,
 		UserRepo:             userRepo,
 		AppURL:               cfg.AppURL,
 		WSHandler:            wsHub.NewSDKHandler(),

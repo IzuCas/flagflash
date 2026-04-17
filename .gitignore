@@ -108,3 +108,8 @@ coverage/
 
 # Debug
 debug/
+
+# ==================================
+# Copilot Skills (local only)
+# ==================================
+.github/skills/
