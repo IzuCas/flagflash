@@ -22,22 +22,23 @@ import (
 // FlagFlashRouterConfig contains configuration for the FlagFlash router
 type FlagFlashRouterConfig struct {
 	// Services
-	TenantService        *service.TenantService
-	ApplicationService   *service.ApplicationService
-	EnvironmentService   *service.EnvironmentService
-	FeatureFlagService   *service.FeatureFlagService
-	TargetingRuleService *service.FeatureFlagService
-	APIKeyService        *service.APIKeyService
-	EvaluationService    *service.EvaluationService
-	AuthService          *service.AuthService
-	AuditLogService      *service.AuditLogService
-	UsageMetricsService  *service.UsageMetricsService
-	UserService          *service.UserService
-	SegmentService       *service.SegmentService
-	WebhookService       *service.WebhookService
-	NotificationService  *service.NotificationService
-	RolloutService       *service.RolloutService
-	FlagHistoryService   *service.FlagHistoryService
+	TenantService           *service.TenantService
+	ApplicationService      *service.ApplicationService
+	EnvironmentService      *service.EnvironmentService
+	FeatureFlagService      *service.FeatureFlagService
+	TargetingRuleService    *service.FeatureFlagService
+	APIKeyService           *service.APIKeyService
+	EvaluationService       *service.EvaluationService
+	AuthService             *service.AuthService
+	AuditLogService         *service.AuditLogService
+	UsageMetricsService     *service.UsageMetricsService
+	UserService             *service.UserService
+	SegmentService          *service.SegmentService
+	WebhookService          *service.WebhookService
+	NotificationService     *service.NotificationService
+	RolloutService          *service.RolloutService
+	FlagHistoryService      *service.FlagHistoryService
+	EmergencyControlService *service.EmergencyControlService
 	// Repositories
 	UserRepo repository.UserRepository
 	// Config
@@ -208,6 +209,11 @@ func (fr *FlagFlashRouter) SetupRoutes(r chi.Router) {
 			if fr.config.FlagHistoryService != nil {
 				flagHistoryHandler := handler.NewFlagHistoryHandler(fr.config.FlagHistoryService)
 				flagHistoryHandler.RegisterRoutes(dashboardAPI)
+			}
+
+			if fr.config.EmergencyControlService != nil {
+				emergencyControlHandler := handler.NewEmergencyControlHandler(fr.config.EmergencyControlService)
+				emergencyControlHandler.RegisterRoutes(dashboardAPI)
 			}
 		})
 

@@ -109,6 +109,7 @@ func main() {
 	rolloutPlanRepo := postgres.NewRolloutPlanRepo(db)
 	rolloutHistoryRepo := postgres.NewRolloutHistoryRepo(db)
 	flagHistoryRepo := postgres.NewFlagHistoryRepo(db)
+	emergencyControlRepo := postgres.NewEmergencyControlRepo(db)
 
 	// Initialize Redis cache (if available)
 	var flagCache service.FlagCache
@@ -165,6 +166,7 @@ func main() {
 	notificationService := service.NewNotificationService(notificationRepo, userRepo, userMembershipRepo)
 	rolloutService := service.NewRolloutService(rolloutPlanRepo, rolloutHistoryRepo, flagRepo, webhookService)
 	flagHistoryService := service.NewFlagHistoryService(flagHistoryRepo, flagRepo)
+	emergencyControlService := service.NewEmergencyControlService(emergencyControlRepo, flagRepo, auditRepo, webhookService, notificationService)
 
 	logger.Info("Services initialized")
 
@@ -203,25 +205,26 @@ func main() {
 
 	// Initialize FlagFlash router
 	flagflashRouter := httpRouter.NewFlagFlashRouter(&httpRouter.FlagFlashRouterConfig{
-		TenantService:        tenantService,
-		ApplicationService:   appService,
-		EnvironmentService:   envService,
-		FeatureFlagService:   flagService,
-		TargetingRuleService: flagService,
-		APIKeyService:        apiKeyService,
-		EvaluationService:    evaluationService,
-		AuthService:          authService,
-		AuditLogService:      auditLogService,
-		UsageMetricsService:  usageMetricsService,
-		UserService:          userService,
-		SegmentService:       segmentService,
-		WebhookService:       webhookService,
-		NotificationService:  notificationService,
-		RolloutService:       rolloutService,
-		FlagHistoryService:   flagHistoryService,
-		UserRepo:             userRepo,
-		AppURL:               cfg.AppURL,
-		WSHandler:            wsHub.NewSDKHandler(),
+		TenantService:           tenantService,
+		ApplicationService:      appService,
+		EnvironmentService:      envService,
+		FeatureFlagService:      flagService,
+		TargetingRuleService:    flagService,
+		APIKeyService:           apiKeyService,
+		EvaluationService:       evaluationService,
+		AuthService:             authService,
+		AuditLogService:         auditLogService,
+		UsageMetricsService:     usageMetricsService,
+		UserService:             userService,
+		SegmentService:          segmentService,
+		WebhookService:          webhookService,
+		NotificationService:     notificationService,
+		RolloutService:          rolloutService,
+		FlagHistoryService:      flagHistoryService,
+		EmergencyControlService: emergencyControlService,
+		UserRepo:                userRepo,
+		AppURL:                  cfg.AppURL,
+		WSHandler:               wsHub.NewSDKHandler(),
 	})
 
 	// Setup FlagFlash routes

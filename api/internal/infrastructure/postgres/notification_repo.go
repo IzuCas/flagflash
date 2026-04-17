@@ -1,15 +1,15 @@
 package postgres
 
 import (
-"context"
-"database/sql"
-"encoding/json"
-"fmt"
-"time"
+	"context"
+	"database/sql"
+	"encoding/json"
+	"fmt"
+	"time"
 
-"github.com/IzuCas/flagflash/internal/domain/entity"
-"github.com/IzuCas/flagflash/internal/domain/repository"
-"github.com/google/uuid"
+	"github.com/IzuCas/flagflash/internal/domain/entity"
+	"github.com/IzuCas/flagflash/internal/domain/repository"
+	"github.com/google/uuid"
 )
 
 // NotificationRepo implements repository.NotificationRepository
@@ -25,15 +25,20 @@ func NewNotificationRepo(db *DB) repository.NotificationRepository {
 // Create creates a new notification
 func (r *NotificationRepo) Create(ctx context.Context, notification *entity.Notification) error {
 	query := `
-		INSERT INTO notifications (id, tenant_id, user_id, type, title, message, link, read, read_at, metadata, created_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+		INSERT INTO notifications (id, tenant_id, user_id, type, title, message, data, read, read_at, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 	`
 
+	data := notification.Metadata
+	if len(data) == 0 {
+		data = json.RawMessage("{}")
+	}
+
 	_, err := r.db.ExecContext(ctx, query,
-notification.ID, notification.TenantID, notification.UserID, notification.Type,
-notification.Title, notification.Message, notification.Link, notification.Read,
-notification.ReadAt, notification.Metadata, notification.CreatedAt,
-)
+		notification.ID, notification.TenantID, notification.UserID, notification.Type,
+		notification.Title, notification.Message, data, notification.Read,
+		notification.ReadAt, notification.CreatedAt,
+	)
 	if err != nil {
 		return fmt.Errorf("failed to create notification: %w", err)
 	}
@@ -54,7 +59,7 @@ func (r *NotificationRepo) CreateBatch(ctx context.Context, notifications []*ent
 // GetByID retrieves a notification by ID
 func (r *NotificationRepo) GetByID(ctx context.Context, id uuid.UUID) (*entity.Notification, error) {
 	query := `
-		SELECT id, tenant_id, user_id, type, title, message, link, read, read_at, metadata, created_at
+		SELECT id, tenant_id, user_id, type, title, message, data, read, read_at, created_at
 		FROM notifications
 		WHERE id = $1
 	`
@@ -73,7 +78,7 @@ func (r *NotificationRepo) ListByUser(ctx context.Context, userID uuid.UUID, lim
 
 	// Get paginated results
 	query := `
-		SELECT id, tenant_id, user_id, type, title, message, link, read, read_at, metadata, created_at
+		SELECT id, tenant_id, user_id, type, title, message, data, read, read_at, created_at
 		FROM notifications
 		WHERE user_id = $1
 		ORDER BY created_at DESC
@@ -97,7 +102,7 @@ func (r *NotificationRepo) ListByUser(ctx context.Context, userID uuid.UUID, lim
 // ListUnread lists unread notifications for a user
 func (r *NotificationRepo) ListUnread(ctx context.Context, userID uuid.UUID) ([]*entity.Notification, error) {
 	query := `
-		SELECT id, tenant_id, user_id, type, title, message, link, read, read_at, metadata, created_at
+		SELECT id, tenant_id, user_id, type, title, message, data, read, read_at, created_at
 		FROM notifications
 		WHERE user_id = $1 AND read = false
 		ORDER BY created_at DESC
@@ -185,14 +190,14 @@ func (r *NotificationRepo) DeleteOlderThan(ctx context.Context, days int) (int, 
 
 func (r *NotificationRepo) scanNotification(row *sql.Row) (*entity.Notification, error) {
 	var notification entity.Notification
-	var message, link sql.NullString
+	var message sql.NullString
 	var readAt sql.NullTime
-	var metadata []byte
+	var data []byte
 
 	err := row.Scan(
-&notification.ID, &notification.TenantID, &notification.UserID,
+		&notification.ID, &notification.TenantID, &notification.UserID,
 		&notification.Type, &notification.Title, &message,
-		&link, &notification.Read, &readAt, &metadata, &notification.CreatedAt,
+		&data, &notification.Read, &readAt, &notification.CreatedAt,
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -204,14 +209,11 @@ func (r *NotificationRepo) scanNotification(row *sql.Row) (*entity.Notification,
 	if message.Valid {
 		notification.Message = message.String
 	}
-	if link.Valid {
-		notification.Link = link.String
-	}
 	if readAt.Valid {
 		notification.ReadAt = &readAt.Time
 	}
-	if len(metadata) > 0 {
-		notification.Metadata = json.RawMessage(metadata)
+	if len(data) > 0 {
+		notification.Metadata = json.RawMessage(data)
 	}
 
 	return &notification, nil
@@ -222,14 +224,14 @@ func (r *NotificationRepo) scanNotifications(rows *sql.Rows) ([]*entity.Notifica
 
 	for rows.Next() {
 		var notification entity.Notification
-		var message, link sql.NullString
+		var message sql.NullString
 		var readAt sql.NullTime
-		var metadata []byte
+		var data []byte
 
 		err := rows.Scan(
-&notification.ID, &notification.TenantID, &notification.UserID,
+			&notification.ID, &notification.TenantID, &notification.UserID,
 			&notification.Type, &notification.Title, &message,
-			&link, &notification.Read, &readAt, &metadata, &notification.CreatedAt,
+			&data, &notification.Read, &readAt, &notification.CreatedAt,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan notification: %w", err)
@@ -238,14 +240,11 @@ func (r *NotificationRepo) scanNotifications(rows *sql.Rows) ([]*entity.Notifica
 		if message.Valid {
 			notification.Message = message.String
 		}
-		if link.Valid {
-			notification.Link = link.String
-		}
 		if readAt.Valid {
 			notification.ReadAt = &readAt.Time
 		}
-		if len(metadata) > 0 {
-			notification.Metadata = json.RawMessage(metadata)
+		if len(data) > 0 {
+			notification.Metadata = json.RawMessage(data)
 		}
 
 		notifications = append(notifications, &notification)
