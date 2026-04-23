@@ -1,6 +1,10 @@
 package sdk
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"os"
+	"strconv"
+)
 
 // ─── Public flag types ──────────────────────────────────────────
 
@@ -66,6 +70,143 @@ func (r *EvalResult) IntValue(defaultVal int) int {
 // JSONValue unmarshals the flag value into dest.
 func (r *EvalResult) JSONValue(dest any) error {
 	return json.Unmarshal(r.Value, dest)
+}
+
+// BoolValueFromEnv returns the flag value as bool when the flag is enabled.
+// If not, it reads the environment variable named envName and parses it as a bool.
+// If the env var is absent or cannot be parsed, defaultVal is returned.
+func (r *EvalResult) BoolValueFromEnv(envName string, defaultVal bool) bool {
+	if r.Enabled && r.Value != nil {
+		var v bool
+		if err := json.Unmarshal(r.Value, &v); err == nil {
+			return v
+		}
+	}
+	if raw, ok := os.LookupEnv(envName); ok {
+		if v, err := strconv.ParseBool(raw); err == nil {
+			return v
+		}
+	}
+	return defaultVal
+}
+
+// StringValueFromEnv returns the flag value as string when the flag is enabled.
+// If not, it reads the environment variable named envName.
+// If the env var is absent, defaultVal is returned.
+func (r *EvalResult) StringValueFromEnv(envName string, defaultVal string) string {
+	if r.Enabled && r.Value != nil {
+		var v string
+		if err := json.Unmarshal(r.Value, &v); err == nil {
+			return v
+		}
+	}
+	if raw, ok := os.LookupEnv(envName); ok {
+		return raw
+	}
+	return defaultVal
+}
+
+// Float64ValueFromEnv returns the flag value as float64 when the flag is enabled.
+// If not, it reads the environment variable named envName and parses it as float64.
+// If the env var is absent or cannot be parsed, defaultVal is returned.
+func (r *EvalResult) Float64ValueFromEnv(envName string, defaultVal float64) float64 {
+	if r.Enabled && r.Value != nil {
+		var v float64
+		if err := json.Unmarshal(r.Value, &v); err == nil {
+			return v
+		}
+	}
+	if raw, ok := os.LookupEnv(envName); ok {
+		if v, err := strconv.ParseFloat(raw, 64); err == nil {
+			return v
+		}
+	}
+	return defaultVal
+}
+
+// IntValueFromEnv returns the flag value as int when the flag is enabled.
+// If not, it reads the environment variable named envName and parses it as int.
+// If the env var is absent or cannot be parsed, defaultVal is returned.
+func (r *EvalResult) IntValueFromEnv(envName string, defaultVal int) int {
+	if r.Enabled && r.Value != nil {
+		var v int
+		if err := json.Unmarshal(r.Value, &v); err == nil {
+			return v
+		}
+	}
+	if raw, ok := os.LookupEnv(envName); ok {
+		if v, err := strconv.Atoi(raw); err == nil {
+			return v
+		}
+	}
+	return defaultVal
+}
+
+// BoolFromEnv returns the flag value as bool when the flag is enabled.
+// If not, it reads the environment variable named envName and parses it as bool.
+// Returns false if the env var is absent or cannot be parsed.
+func (r *EvalResult) BoolFromEnv(envName string) bool {
+	if r.Enabled && r.Value != nil {
+		var v bool
+		if err := json.Unmarshal(r.Value, &v); err == nil {
+			return v
+		}
+	}
+	if raw, ok := os.LookupEnv(envName); ok {
+		if v, err := strconv.ParseBool(raw); err == nil {
+			return v
+		}
+	}
+	return false
+}
+
+// StringFromEnv returns the flag value as string when the flag is enabled.
+// If not, it reads the environment variable named envName.
+// Returns "" if the env var is absent.
+func (r *EvalResult) StringFromEnv(envName string) string {
+	if r.Enabled && r.Value != nil {
+		var v string
+		if err := json.Unmarshal(r.Value, &v); err == nil {
+			return v
+		}
+	}
+	return os.Getenv(envName)
+}
+
+// Float64FromEnv returns the flag value as float64 when the flag is enabled.
+// If not, it reads the environment variable named envName and parses it as float64.
+// Returns 0 if the env var is absent or cannot be parsed.
+func (r *EvalResult) Float64FromEnv(envName string) float64 {
+	if r.Enabled && r.Value != nil {
+		var v float64
+		if err := json.Unmarshal(r.Value, &v); err == nil {
+			return v
+		}
+	}
+	if raw, ok := os.LookupEnv(envName); ok {
+		if v, err := strconv.ParseFloat(raw, 64); err == nil {
+			return v
+		}
+	}
+	return 0
+}
+
+// IntFromEnv returns the flag value as int when the flag is enabled.
+// If not, it reads the environment variable named envName and parses it as int.
+// Returns 0 if the env var is absent or cannot be parsed.
+func (r *EvalResult) IntFromEnv(envName string) int {
+	if r.Enabled && r.Value != nil {
+		var v int
+		if err := json.Unmarshal(r.Value, &v); err == nil {
+			return v
+		}
+	}
+	if raw, ok := os.LookupEnv(envName); ok {
+		if v, err := strconv.Atoi(raw); err == nil {
+			return v
+		}
+	}
+	return 0
 }
 
 // AllFlagsResult maps flag key → EvalResult for bulk evaluation.
