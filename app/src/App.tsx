@@ -18,7 +18,6 @@ import {
   ShieldAlert,
   UsersRound,
   Bell,
-  GitBranch,
 } from 'lucide-react';
 
 import LoginPage from './pages/Login';

@@ -23,8 +23,8 @@ FROM alpine:3.19
 
 WORKDIR /app
 
-# Install ca-certificates for HTTPS
-RUN apk --no-cache add ca-certificates
+# Install ca-certificates and wget for healthchecks
+RUN apk --no-cache add ca-certificates wget
 
 # Copy binary from builder
 COPY --from=builder /app/api .
